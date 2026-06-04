@@ -144,7 +144,7 @@ async function refreshBadges(){
   pendCounts={leave:l.count||0,doc:d.count||0};
 }
 function navItems(){
-  const b=[['home','홈'],['att','근태'],['leave','휴가'],['approval','전자결재'],['cal','캘린더'],['todo','할 일']];
+  const b=[['home','홈'],['att','근태'],['leave','휴가'],['approval','전자결재'],['cal','캘린더'],['todo','할 일'],['mypage','마이페이지']];
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
 }
@@ -153,9 +153,9 @@ function renderNav(){
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',att:'근태',leave:'휴가',approval:'전자결재',cal:'캘린더',todo:'할 일',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',att:'근태',leave:'휴가',approval:'전자결재',cal:'캘린더',todo:'할 일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function go(t){tab=t;render();$('view').scrollTop=0;}
-const VIEWS={home:viewHome,att:viewAtt,leave:viewLeave,approval:viewApproval,cal:viewCal,todo:viewTodo,hr:viewHR,team:viewTeam};
+const VIEWS={home:viewHome,att:viewAtt,leave:viewLeave,approval:viewApproval,cal:viewCal,todo:viewTodo,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
@@ -339,6 +339,30 @@ async function decideLeave(id,ok,empId,type,start){
   await sb.from('leave_requests').update({status:ok?'승인':'반려',approver_id:me.id,decided_at:new Date().toISOString()}).eq('id',id);
   if(ok&&empId){const {data:emp}=await sb.from('employees').select('name').eq('id',empId).maybeSingle();await sb.from('events').insert({title:(emp?emp.name:'')+' '+type,event_date:start,event_type:'휴가',employee_id:empId,created_by:me.id});}
   toast(ok?'승인 + 캘린더 등록':'반려 완료');await refreshBadges();render();
+}
+
+/* ---------- 마이페이지 ---------- */
+async function viewMyPage(){
+  const {data:{user}}=await sb.auth.getUser();
+  return `<h2 class="sec">내 정보</h2><div class="card" style="max-width:520px">
+    <div class="row"><div class="meta">이름</div><div class="ttl">${esc(me.name||'')}</div></div>
+    <div class="row"><div class="meta">이메일</div><div class="ttl">${esc(user?user.email:'')}</div></div>
+    <div class="row"><div class="meta">부서 · 직급</div><div class="ttl">${esc(me.dept||'')} ${esc(me.role||'')}${me.is_admin?' · 관리자':''}</div></div>
+  </div>
+  <h2 class="sec">비밀번호 변경</h2><div class="card" style="max-width:520px">
+    <div class="field"><label>새 비밀번호</label><input type="password" id="np1" placeholder="새 비밀번호 (8자 이상 권장)"></div>
+    <div class="field"><label>새 비밀번호 확인</label><input type="password" id="np2" placeholder="다시 입력"></div>
+    <button class="submit" onclick="changePw()">비밀번호 변경</button>
+    <div class="meta" id="pwmsg" style="margin-top:10px"></div>
+  </div>`;
+}
+async function changePw(){
+  const a=$('np1').value,b=$('np2').value,m=$('pwmsg');m.style.color='var(--muted)';m.textContent='';
+  if(!a||a.length<6){m.style.color='var(--red)';m.textContent='6자 이상 입력하세요';return;}
+  if(a!==b){m.style.color='var(--red)';m.textContent='두 비밀번호가 일치하지 않습니다';return;}
+  const {error}=await sb.auth.updateUser({password:a});
+  if(error){m.style.color='var(--red)';m.textContent='오류: '+error.message;return;}
+  m.style.color='var(--green)';m.textContent='✓ 비밀번호가 변경되었습니다';$('np1').value='';$('np2').value='';
 }
 
 /* ---------- 로그인 ---------- */
