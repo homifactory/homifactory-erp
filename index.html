@@ -347,6 +347,21 @@ async function viewTodo(){
   const projRows=ts.defs.filter(t=>t.recur_type==='project'&&t.done).map(t=>`<div class="row"><div class="ttl" style="text-decoration:line-through;color:var(--muted)">${esc(t.content)} <span class="tdtag">프로젝트</span></div><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`);
   const doneList=[...projRows,...compRows].join('')||'<div class="empty">완료한 업무가 없습니다</div>';
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===todayWeekday()?'selected':''}>${d}요일</option>`).join('');
+  let adminBlock='';
+  if(me.is_admin){
+    const {data:emps}=await sb.from('employees').select('id,name,dept').order('name');
+    const {data:allTodos}=await sb.from('todos').select('*');
+    const {data:allComps}=await sb.from('todo_completions').select('todo_id').eq('done_date',todayStr());
+    const cset=new Set((allComps||[]).map(c=>c.todo_id));
+    const byEmp={};(allTodos||[]).forEach(t=>{(byEmp[t.employee_id]=byEmp[t.employee_id]||[]).push(t);});
+    const cards=(emps||[]).filter(e=>byEmp[e.id]&&byEmp[e.id].length).map(e=>{
+      const its=(byEmp[e.id]||[]).filter(applicableToday);
+      const doneN=its.filter(t=>todoChecked(t,cset)).length;
+      const rows=its.length?its.map(t=>{const ck=todoChecked(t,cset);return `<div class="tditem ${ck?'done':''}"><span style="width:18px;text-align:center;color:${ck?'var(--green)':'var(--muted)'}">${ck?'✓':'▢'}</span><span style="flex:1">${esc(t.content)}</span><span class="tdtag">${todoTag(t)}</span></div>`;}).join(''):'<div class="empty" style="padding:6px 0">오늘 할 일 없음</div>';
+      return `<div class="deptcard"><div class="dh">${esc(e.name)} · ${esc(e.dept||'-')}<span>${doneN}/${its.length}</span></div>${rows}</div>`;
+    }).join('')||'<div class="empty">등록된 할 일이 없습니다</div>';
+    adminBlock=`<h2 class="sec">전체 직원 할 일 현황 · 오늘</h2><div class="card">${cards}</div>`;
+  }
   return `<div class="grid2"><div>
     <h2 class="sec">오늘 할 일</h2><div class="card" style="max-width:560px">${list}</div>
     <h2 class="sec">할 일 추가</h2><div class="card" style="max-width:560px">
@@ -354,7 +369,7 @@ async function viewTodo(){
       <div class="field two"><div><label>분류</label><select id="td-type" onchange="document.getElementById('td-wdwrap').style.display=this.value==='weekly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div></div>
       <button class="submit" onclick="addTodo()">추가</button>
     </div></div>
-    <div><h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>`;
+    <div><h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>${adminBlock}`;
 }
 async function addTodo(){
   const el=$('td-in');const v=el.value.trim();if(!v)return;
