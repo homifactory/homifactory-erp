@@ -283,13 +283,13 @@ async function viewApproval(){
   let admin='';
   if(me.is_admin){
     const {data:pend}=await sb.from('documents').select('*,employees(name)').eq('status','대기').order('created_at');
-    const cards=(pend||[]).map(p=>`<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div><div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div></div>`).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
+    const cards=(pend||[]).map(p=>{const act=(p.doc_type==='구매 상신'&&me.name!=='윤호성')?`<div class="meta" style="color:var(--blue)">윤호성 대표 승인 대기</div>`:`<div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div>`;return `<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div>${act}</div>`;}).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
     const {data:alldocs}=await sb.from('documents').select('*,employees(name)').order('created_at',{ascending:false});
     const allrows=(alldocs||[]).map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
     admin=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div><h2 class="sec">전체 결재 내역</h2><div class="card">${allrows}</div><div style="height:8px"></div>`;
   }
   return `${admin}<div class="grid2"><div><h2 class="sec">결재 상신</h2><div class="card"><div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>${docFields()}
-    <div class="field"><label>결재선</label><div style="font-size:13px;color:var(--muted)">윤호성 · 배수빈 · 최성용 (대표 3인)</div></div>
+    <div class="field"><label>결재선</label><div style="font-size:13px;color:var(--muted)">${docType==='구매 상신'?'윤호성 (대표 승인) → 박영주 (경영지원 · 구매 진행)':'윤호성 · 배수빈 · 최성용 (대표 3인)'}</div></div>
     <button class="submit" onclick="submitDoc()">상신하기</button></div></div>
     <div><h2 class="sec">내 상신 내역</h2><div class="card">${list}</div></div></div>`;
 }
@@ -306,7 +306,16 @@ async function submitDoc(){
   toast('결재가 상신되었습니다');render();
 }
 async function openReceipt(path){const {data,error}=await sb.storage.from('receipts').createSignedUrl(path,180);if(error||!data){toast('영수증을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
-async function decideDoc(id,ok){await sb.from('documents').update({status:ok?'승인':'반려'}).eq('id',id);toast(ok?'승인 완료':'반려 완료');await refreshBadges();render();}
+async function decideDoc(id,ok){
+  const {data:doc}=await sb.from('documents').select('doc_type,summary').eq('id',id).maybeSingle();
+  await sb.from('documents').update({status:ok?'승인':'반려'}).eq('id',id);
+  if(ok&&doc&&doc.doc_type==='구매 상신'){
+    const {data:pj}=await sb.from('employees').select('id').eq('name','박영주').maybeSingle();
+    if(pj){await sb.from('todos').insert({employee_id:pj.id,content:'[구매 요청] '+(doc.summary||''),recur_type:'project',priority:'높음'});}
+    toast('승인 → 박영주에게 구매 요청 전달');
+  }else{toast(ok?'승인 완료':'반려 완료');}
+  await refreshBadges();render();
+}
 
 /* ---------- 캘린더 ---------- */
 let evEdit=null;
