@@ -125,7 +125,6 @@ let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date()
 let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
-let credShow={};
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function fmtT(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -495,34 +494,25 @@ async function submitMeet(){
 }
 async function delMeet(id){await sb.from('meetings').delete().eq('id',id);if(meetSel===id)meetSel=null;render();}
 
-/* ---------- 자료실 (아카이브 / 메뉴얼 / 계정) ---------- */
+/* ---------- 자료실 (아카이브 / 메뉴얼) ---------- */
+function arStars(n){n=n||0;return '★★★'.slice(0,n)+'☆☆☆'.slice(0,3-n);}
 async function viewArchive(){
   const {data:arc}=await sb.from('archives').select('*').order('created_at',{ascending:false});
-  const {data:cred}=await sb.from('credentials').select('*').order('service');
-  const cats=['TIKTOK','마케팅','매니지먼트','BENEFIT','업무','기타'];
+  const cats=['TIKTOK','BENEFIT','마케팅','공연','매니지먼트','업무','기타'];
   const catOpts=cats.map(c=>`<option>${c}</option>`).join('');
-  const arows=(arc||[]).map(a=>`<div class="row"><div style="flex:1"><div class="ttl">${a.url?`<a href="${esc(a.url)}" target="_blank" style="color:var(--blue)">${esc(a.title)}</a>`:esc(a.title)} ${a.category?`<span class="tdtag">${esc(a.category)}</span>`:''}</div><div class="meta">${esc(a.note||'')}</div></div><button class="xmini" onclick="delArchive('${a.id}')">×</button></div>`).join('')||'<div class="empty">등록된 자료가 없습니다</div>';
-  const crows=(cred||[]).map(c=>{const show=credShow[c.id];return `<div class="row"><div style="flex:1"><div class="ttl">${esc(c.service)} ${c.note?`<span class="tdtag">${esc(c.note)}</span>`:''}</div><div class="meta">ID: ${esc(c.account_id||'')} · PW: ${show?esc(c.password||''):'••••••••'} <button class="xmini" style="color:var(--blue)" onclick="credShow['${c.id}']=${show?'false':'true'};render()">${show?'숨기기':'보기'}</button></div></div><button class="xmini" onclick="delCred('${c.id}')">×</button></div>`;}).join('')||'<div class="empty">등록된 계정이 없습니다</div>';
+  const arows=(arc||[]).map(a=>`<div class="row"><div style="flex:1"><div class="ttl">${a.category?`<span class="tdtag">${esc(a.category)}</span> `:''}<span style="color:#E8A300">${arStars(a.impact)}</span> ${a.url?`<a href="${esc(a.url)}" target="_blank" style="color:var(--blue)">${esc(a.title)}</a>`:esc(a.title)}</div>${a.note?`<div class="meta">${esc(a.note)}</div>`:''}</div><div style="display:flex;align-items:center;gap:8px"><span class="meta">${(a.created_at||'').slice(0,10)}</span><button class="xmini" onclick="delArchive('${a.id}')">×</button></div></div>`).join('')||'<div class="empty">등록된 자료가 없습니다</div>';
   return `<div class="grid2"><div>
     <h2 class="sec">자료 · 메뉴얼 추가</h2><div class="card">
       <div class="field"><label>제목</label><input id="ar-title" placeholder="제목"></div>
-      <div class="field two"><div><label>분야</label><select id="ar-cat">${catOpts}</select></div><div><label>링크</label><input id="ar-url" placeholder="https://"></div></div>
-      <div class="field"><label>메모</label><textarea id="ar-note" rows="2"></textarea></div>
+      <div class="field two"><div><label>분야</label><select id="ar-cat">${catOpts}</select></div><div><label>임팩트</label><select id="ar-impact"><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></div></div>
+      <div class="field"><label>링크</label><input id="ar-url" placeholder="https://"></div>
+      <div class="field"><label>코멘트</label><textarea id="ar-note" rows="2"></textarea></div>
       <button class="submit" onclick="addArchive()">추가</button>
-    </div>
-    <h2 class="sec" style="margin-top:20px">계정 정보 추가</h2><div class="card">
-      <div class="field two"><div><label>서비스</label><input id="cr-svc" placeholder="예: Instagram"></div><div><label>아이디</label><input id="cr-id" placeholder="아이디"></div></div>
-      <div class="field two"><div><label>비밀번호</label><input id="cr-pw" placeholder="비밀번호"></div><div><label>메모</label><input id="cr-note" placeholder="용도/담당 등"></div></div>
-      <button class="submit" onclick="addCred()">추가</button>
-      <div class="meta" style="margin-top:8px;color:var(--muted)">※ 회사 공용 계정 보관용입니다. 로그인한 임직원만 열람할 수 있습니다.</div>
     </div></div>
-    <div><h2 class="sec">자료 · 메뉴얼 (${(arc||[]).length})</h2><div class="card">${arows}</div>
-    <h2 class="sec" style="margin-top:20px">계정 정보 (${(cred||[]).length})</h2><div class="card">${crows}</div></div></div>`;
+    <div><h2 class="sec">자료 · 메뉴얼 (${(arc||[]).length})</h2><div class="card">${arows}</div></div></div>`;
 }
-async function addArchive(){const t=$('ar-title').value.trim();if(!t){toast('제목을 입력하세요');return;}const {error}=await sb.from('archives').insert({title:t,category:$('ar-cat').value,url:$('ar-url').value,note:$('ar-note').value,created_by:me.id});if(error){toast('오류: '+error.message);return;}toast('자료가 추가되었습니다');render();}
+async function addArchive(){const t=$('ar-title').value.trim();if(!t){toast('제목을 입력하세요');return;}const {error}=await sb.from('archives').insert({title:t,category:$('ar-cat').value,impact:Number($('ar-impact').value||3),url:$('ar-url').value,note:$('ar-note').value,created_by:me.id});if(error){toast('오류: '+error.message);return;}toast('자료가 추가되었습니다');render();}
 async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
-async function addCred(){const sv=$('cr-svc').value.trim();if(!sv){toast('서비스명을 입력하세요');return;}const {error}=await sb.from('credentials').insert({service:sv,account_id:$('cr-id').value,password:$('cr-pw').value,note:$('cr-note').value,created_by:me.id});if(error){toast('오류: '+error.message);return;}toast('계정 정보가 추가되었습니다');render();}
-async function delCred(id){await sb.from('credentials').delete().eq('id',id);render();}
 
 /* ---------- 마이페이지 ---------- */
 async function viewMyPage(){
