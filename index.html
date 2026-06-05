@@ -158,7 +158,7 @@ async function refreshBadges(){
   pendCounts={leave:l.count||0,doc:d.count||0};
 }
 function navItems(){
-  const b=[['home','홈'],['todo','할 일'],['cal','캘린더'],['meet','회의록'],['att','근태'],['leave','휴가'],['approval','전자결재'],['mypage','마이페이지']];
+  const b=[['home','홈'],['todo','할 일'],['cal','캘린더'],['meet','회의록'],['leave','휴가'],['approval','전자결재'],['mypage','마이페이지']];
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
 }
@@ -167,9 +167,9 @@ function renderNav(){
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',todo:'할 일',cal:'캘린더',meet:'회의록',att:'근태',leave:'휴가',approval:'전자결재',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',todo:'할 일',cal:'캘린더',meet:'회의록',leave:'휴가',approval:'전자결재',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function go(t){tab=t;render();$('view').scrollTop=0;}
-const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,att:viewAtt,leave:viewLeave,approval:viewApproval,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,leave:viewLeave,approval:viewApproval,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
@@ -205,9 +205,11 @@ async function viewHome(){
   const {data:evs}=await sb.from('events').select('*').gte('event_date',todayStr()).order('event_date').limit(5);
   const tl=todayItems.map(t=>todoRow2(t,ts.compSet)).join('')||'<div class="empty">오늘 할 일이 없습니다</div>';
   const el=(evs||[]).map(e=>`<div class="row"><div><div class="ttl">${esc(e.title)}</div><div class="meta">${e.event_date}</div></div><span class="badge2" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${esc(e.event_type)}</span></div>`).join('')||'<div class="empty">예정된 일정이 없습니다</div>';
+  const cal=await calendarBlock();
   return `<div class="grid2"><div>${clockCard(a)}</div>
     <div><h2 class="sec">내 할 일</h2><div class="card">${tl}<div class="todoadd"><input id="td-in" placeholder="할 일 추가"><button onclick="addTodo()">+</button></div></div>
-    <h2 class="sec">다가오는 일정</h2><div class="card">${el}</div></div></div>`;
+    <h2 class="sec">다가오는 일정</h2><div class="card">${el}</div></div></div>
+    <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
 }
 
 /* ---------- 근태 ---------- */
@@ -227,13 +229,21 @@ async function viewLeave(){
   const {data:mine}=await sb.from('leave_requests').select('*').eq('employee_id',me.id).order('created_at',{ascending:false});
   const list=(mine||[]).map(l=>{const b=l.status==='승인'?'b-green':l.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(l.leave_type)}</div><div class="meta">${l.start_date}${l.end_date!==l.start_date?' ~ '+l.end_date:''} · ${esc(l.reason||'')}</div></div><span class="badge2 ${b}">${l.status}</span></div>`;}).join('')||'<div class="empty">신청 내역이 없습니다</div>';
   const seg=['연차','반차'].map(t=>`<button class="${leaveType===t?'on':''}" onclick="leaveType='${t}';render()">${t}</button>`).join('');
+  let leaveAdmin='';
+  if(me.is_admin){
+    const {data:emps}=await sb.from('employees').select('id,name,dept').order('name');
+    const {data:bals}=await sb.from('leave_balances').select('*').eq('year',yr);
+    const bmap={};(bals||[]).forEach(b=>bmap[b.employee_id]=b);
+    const lrows=(emps||[]).map(e=>{const bb=bmap[e.id];const tt=bb?bb.total_days:15;const uu=bb?bb.used_days:0;return `<div class="row"><div style="flex:1"><div class="ttl">${esc(e.name)}</div><div class="meta">${esc(e.dept||'')} · 잔여 ${tt-uu}일</div></div><div style="display:flex;gap:6px;align-items:center"><label style="font-size:12px;color:var(--muted)">총</label><input id="lb-t-${e.id}" type="number" value="${tt}" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"><label style="font-size:12px;color:var(--muted)">사용</label><input id="lb-u-${e.id}" type="number" value="${uu}" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"><button class="ap" onclick="saveLeaveBal('${e.id}')">저장</button></div></div>`;}).join('');
+    leaveAdmin=`<h2 class="sec" style="margin-top:20px">직원 연차 관리 (${yr})</h2><div class="card">${lrows}</div>`;
+  }
   return `<div class="card" style="display:flex;align-items:center;gap:16px;margin-bottom:16px"><div style="font-size:30px;font-weight:800;color:var(--blue)">${rem}<span style="font-size:14px;color:var(--muted);font-weight:600">일</span></div><div><div style="font-weight:700">잔여 연차 ${rem}일</div><div style="color:var(--muted);font-size:13px">올해 총 ${total}일 중 ${used}일 사용</div></div></div>
   <div class="grid2"><div><h2 class="sec">휴가 신청</h2><div class="card">
     <div class="field"><label>휴가 종류</label><div class="seg">${seg}</div></div>
     <div class="field two"><div><label>시작일</label><input type="date" id="lv-from" value="${todayStr()}"></div><div><label>종료일</label><input type="date" id="lv-to" value="${todayStr()}"></div></div>
     <div class="field"><label>사유</label><textarea id="lv-reason" rows="2" placeholder="사유"></textarea></div>
     <button class="submit" onclick="submitLeave()">신청하기</button></div></div>
-    <div><h2 class="sec">내 신청 내역</h2><div class="card">${list}</div></div></div>`;
+    <div><h2 class="sec">내 신청 내역</h2><div class="card">${list}</div></div></div>${leaveAdmin}`;
 }
 async function submitLeave(){
   const f=$('lv-from').value,t=$('lv-to').value,r=$('lv-reason').value;
@@ -242,6 +252,7 @@ async function submitLeave(){
   if(error){toast('오류: '+error.message);return;}
   toast('휴가 신청 완료 (결재 대기)');render();
 }
+async function saveLeaveBal(empId){const yr=new Date().getFullYear();const t=Number($('lb-t-'+empId).value||0),u=Number($('lb-u-'+empId).value||0);const {error}=await sb.from('leave_balances').upsert({employee_id:empId,year:yr,total_days:t,used_days:u});if(error){toast('저장 실패: '+error.message);return;}toast('연차 정보 저장됨');render();}
 
 /* ---------- 전자결재 ---------- */
 function docFields(){
@@ -259,16 +270,17 @@ function docFields(){
     <div class="field"><label>카드 구분</label><select id="dc-card"><option>법인카드</option><option>개인카드</option></select></div>
     <div class="field two"><div><label>지출일</label><input type="date" id="dc-date" value="${todayStr()}"></div><div><label>금액(원)</label><input type="number" id="dc-amt" placeholder="0"></div></div>
     <div class="field"><label>사용처</label><input id="dc-vendor" placeholder="상호"></div>
-    <div class="field"><label>내역</label><textarea id="dc-reason" rows="2"></textarea></div>`;
+    <div class="field"><label>내역</label><textarea id="dc-reason" rows="2"></textarea></div>
+    <div class="field"><label>영수증 첨부 (이미지/PDF)</label><input type="file" id="dc-receipt" accept="image/*,.pdf"></div>`;
 }
 async function viewApproval(){
   const {data:mine}=await sb.from('documents').select('*').eq('employee_id',me.id).order('created_at',{ascending:false});
-  const list=(mine||[]).map(d=>{const b=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}</div></div><span class="badge2 ${b}">${d.status}</span></div>`;}).join('')||'<div class="empty">상신 내역이 없습니다</div>';
+  const list=(mine||[]).map(d=>{const b=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${b}">${d.status}</span></div>`;}).join('')||'<div class="empty">상신 내역이 없습니다</div>';
   const seg=['야근·주말·외근','지출 결의','구매 상신'].map(t=>`<button class="${docType===t?'on':''}" onclick="docType='${t}';render()">${t}</button>`).join('');
   let admin='';
   if(me.is_admin){
     const {data:pend}=await sb.from('documents').select('*,employees(name)').eq('status','대기').order('created_at');
-    const cards=(pend||[]).map(p=>`<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div></div><div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div></div>`).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
+    const cards=(pend||[]).map(p=>`<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div><div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div></div>`).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
     admin=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div>`;
   }
   return `${admin}<div class="grid2"><div><h2 class="sec">결재 상신</h2><div class="card"><div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>${docFields()}
@@ -277,19 +289,26 @@ async function viewApproval(){
     <div><h2 class="sec">내 상신 내역</h2><div class="card">${list}</div></div></div>`;
 }
 async function submitDoc(){
-  let summary='', payload={};
+  let summary='', payload={}, receipt_path=null;
   if(docType==='야근·주말·외근'){const k=$('dc-kind').value,d=$('dc-date').value,st=$('dc-s').value,e=$('dc-e').value,place=$('dc-place')?$('dc-place').value:'';summary=`${k} ${d} ${st}~${e}${place?' · '+place:''}`;payload={kind:k,date:d,start:st,end:e,place,reason:$('dc-reason').value};}
   else if(docType==='구매 상신'){const item=$('dc-item').value,qty=Number($('dc-qty').value||1),amt=Number($('dc-amt').value||0),v=$('dc-vendor').value,card=$('dc-card').value;summary=`${item} ${qty}개 · ${amt.toLocaleString()}원 [${card}]`;payload={item,qty,amount:amt,vendor:v,card,reason:$('dc-reason').value};}
-  else{const c=$('dc-cat').value,card=$('dc-card').value,d=$('dc-date').value,amt=Number($('dc-amt').value||0),v=$('dc-vendor').value;summary=`[${card}] ${c} ${amt.toLocaleString()}원 · ${v||'-'}`;payload={cat:c,card,date:d,amount:amt,vendor:v,reason:$('dc-reason').value};}
-  const {error}=await sb.from('documents').insert({employee_id:me.id,doc_type:docType,summary,payload,card_type:payload.card||null,status:'대기'});
+  else{const c=$('dc-cat').value,card=$('dc-card').value,d=$('dc-date').value,amt=Number($('dc-amt').value||0),v=$('dc-vendor').value;summary=`[${card}] ${c} ${amt.toLocaleString()}원 · ${v||'-'}`;payload={cat:c,card,date:d,amount:amt,vendor:v,reason:$('dc-reason').value};
+    const fi=$('dc-receipt');
+    if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('receipts').upload(path,f,{contentType:f.type});if(up.error){toast('영수증 업로드 실패: '+up.error.message);return;}receipt_path=path;}
+  }
+  const {error}=await sb.from('documents').insert({employee_id:me.id,doc_type:docType,summary,payload,card_type:payload.card||null,receipt_path,status:'대기'});
   if(error){toast('오류: '+error.message);return;}
   toast('결재가 상신되었습니다');render();
 }
+async function openReceipt(path){const {data,error}=await sb.storage.from('receipts').createSignedUrl(path,180);if(error||!data){toast('영수증을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
 async function decideDoc(id,ok){await sb.from('documents').update({status:ok?'승인':'반려'}).eq('id',id);toast(ok?'승인 완료':'반려 완료');await refreshBadges();render();}
 
 /* ---------- 캘린더 ---------- */
-async function viewCal(){
-  const first=todayStr().slice(0,8), mfrom=`${calY}-${String(calM+1).padStart(2,'0')}-01`;
+let evEdit=null;
+function startEvEdit(id){evEdit=id;render();}
+async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제목을 입력하세요');return;}const {error}=await sb.from('events').update({title:t,event_date:$('ev-date').value,event_type:$('ev-type').value}).eq('id',evEdit);if(error){toast('수정 실패: '+error.message);return;}evEdit=null;toast('일정이 수정되었습니다');render();}
+async function calendarBlock(){
+  const mfrom=`${calY}-${String(calM+1).padStart(2,'0')}-01`;
   const lastDay=new Date(calY,calM+1,0).getDate();
   const {data:evs}=await sb.from('events').select('*').gte('event_date',mfrom).lte('event_date',`${calY}-${String(calM+1).padStart(2,'0')}-${lastDay}`);
   const byDate={};(evs||[]).forEach(e=>{(byDate[e.event_date]=byDate[e.event_date]||[]).push(e);});
@@ -300,15 +319,22 @@ async function viewCal(){
     else if(dn>lastDay){out=true;cd=dn-lastDay;cm=calM+1;if(cm>11){cm=0;cy++;}}
     const ds=`${cy}-${String(cm+1).padStart(2,'0')}-${String(cd).padStart(2,'0')}`;
     const ch=(byDate[ds]||[]).slice(0,3).map(e=>`<div class="evchip" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${esc(e.title)}</div>`).join('');
-    cells+=`<div class="calcell ${out?'out':''} ${ds===today?'today':''} ${ds===calSel?'sel':''}" onclick="calSel='${ds}';render()"><span class="dn">${cd}</span>${ch}</div>`;}
+    cells+=`<div class="calcell ${out?'out':''} ${ds===today?'today':''} ${ds===calSel?'sel':''}" onclick="calSel='${ds}';evEdit=null;render()"><span class="dn">${cd}</span>${ch}</div>`;}
   const head=DOW.map(d=>`<div class="caldow">${d}</div>`).join('');
   const selEvs=(evs||[]).filter(e=>e.event_date===calSel);
-  const sel=selEvs.map(e=>`<div class="row"><div class="ttl">${esc(e.title)} <span class="meta">${esc(e.event_type)}</span></div><button class="xmini" onclick="delEvent('${e.id}')">×</button></div>`).join('')||'<div class="empty">일정이 없습니다</div>';
+  const sel=selEvs.map(e=>{const can=(e.created_by===me.id||me.is_admin);return `<div class="row"><div class="ttl">${esc(e.title)} <span class="meta">${esc(e.event_type)}</span></div>${can?`<div><button class="xmini" style="color:var(--blue)" onclick="startEvEdit('${e.id}')">수정</button><button class="xmini" onclick="delEvent('${e.id}')">×</button></div>`:''}</div>`;}).join('')||'<div class="empty">일정이 없습니다</div>';
+  const editing=evEdit?(evs||[]).find(e=>e.id===evEdit):null;
+  const tval=editing?editing.title:'';
+  const dval=editing?editing.event_date:calSel;
+  const typeOpts=['회의','공연','라이브','휴가','공휴일','기타'].map(t=>`<option ${editing&&editing.event_type===t?'selected':''}>${t}</option>`).join('');
+  const formTitle=editing?'일정 수정':'일정 추가';
+  const formBtn=editing?`<button class="submit" onclick="saveEvEdit()">수정 저장</button><button class="xmini" style="margin-left:8px" onclick="evEdit=null;render()">취소</button>`:`<button class="submit" onclick="addEvent()">추가</button>`;
   return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><button class="navbtn" onclick="calMove(-1)">‹</button><div style="font-weight:700;font-size:17px;min-width:110px;text-align:center">${calY}년 ${calM+1}월</div><button class="navbtn" onclick="calMove(1)">›</button></div>
   <div class="calwrap"><div class="calhead">${head}</div><div class="calgrid">${cells}</div></div>
   <div class="grid2" style="margin-top:16px"><div><h2 class="sec">${calSel} 일정</h2><div class="card">${sel}</div></div>
-  <div><h2 class="sec">일정 추가</h2><div class="card"><div class="field"><label>제목</label><input id="ev-title"></div><div class="field two"><div><label>날짜</label><input type="date" id="ev-date" value="${calSel}"></div><div><label>구분</label><select id="ev-type"><option>회의</option><option>공연</option><option>라이브</option><option>휴가</option><option>공휴일</option><option>기타</option></select></div></div><button class="submit" onclick="addEvent()">추가</button></div></div></div>`;
+  <div><h2 class="sec">${formTitle}</h2><div class="card"><div class="field"><label>제목</label><input id="ev-title" value="${esc(tval)}"></div><div class="field two"><div><label>날짜</label><input type="date" id="ev-date" value="${dval}"></div><div><label>구분</label><select id="ev-type">${typeOpts}</select></div></div>${formBtn}</div></div></div>`;
 }
+async function viewCal(){ return await calendarBlock(); }
 function calMove(d){calM+=d;if(calM<0){calM=11;calY--;}if(calM>11){calM=0;calY++;}render();}
 async function addEvent(){const t=$('ev-title').value.trim();if(!t){toast('제목을 입력하세요');return;}await sb.from('events').insert({title:t,event_date:$('ev-date').value,event_type:$('ev-type').value,created_by:me.id});toast('일정 추가됨');render();}
 async function delEvent(id){await sb.from('events').delete().eq('id',id);render();}
