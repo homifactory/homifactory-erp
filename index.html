@@ -128,6 +128,7 @@ let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
 let arcModal=false;
+let docModal=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function fmtT(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -279,22 +280,35 @@ function docFields(){
     <div class="field"><label>내역</label><textarea id="dc-reason" rows="2"></textarea></div>
     <div class="field"><label>영수증 첨부 (이미지/PDF)</label><input type="file" id="dc-receipt" accept="image/*,.pdf"></div>`;
 }
+function docDetailRows(d){
+  const p=d.payload||{};
+  const f=(l,v)=>(v!==undefined&&v!==null&&v!=='')?`<div style="margin-top:10px"><div class="meta" style="font-weight:700;color:var(--ink)">${l}</div><div style="white-space:pre-wrap;margin-top:2px">${esc(String(v))}</div></div>`:'';
+  if(d.doc_type==='야근·주말·외근') return f('근무 구분',p.kind)+f('일자',p.date)+f('시간',(p.start||'')+' ~ '+(p.end||''))+f('행선지',p.place)+f('사유',p.reason);
+  if(d.doc_type==='구매 상신') return f('품목명',p.item)+f('수량',p.qty)+f('예상 금액',p.amount?Number(p.amount).toLocaleString()+'원':'')+f('구매처',p.vendor)+f('결제 수단',p.card)+f('사유',p.reason);
+  return f('지출 항목',p.cat)+f('카드 구분',p.card)+f('지출일',p.date)+f('금액',p.amount?Number(p.amount).toLocaleString()+'원':'')+f('사용처',p.vendor)+f('내역',p.reason);
+}
 async function viewApproval(){
   const {data:mine}=await sb.from('documents').select('*').eq('employee_id',me.id).order('created_at',{ascending:false});
-  const list=(mine||[]).map(d=>{const b=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${b}">${d.status}</span></div>`;}).join('')||'<div class="empty">상신 내역이 없습니다</div>';
+  const list=(mine||[]).map(d=>{const b=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row" onclick="docModal='${d.id}';render()" style="cursor:pointer"><div><div class="ttl">${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="event.stopPropagation();openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${b}">${d.status}</span></div>`;}).join('')||'<div class="empty">상신 내역이 없습니다</div>';
   const seg=['야근·주말·외근','지출 결의','구매 상신'].map(t=>`<button class="${docType===t?'on':''}" onclick="docType='${t}';render()">${t}</button>`).join('');
   let admin='';
   if(me.is_admin){
     const {data:pend}=await sb.from('documents').select('*,employees(name)').eq('status','대기').order('created_at');
-    const cards=(pend||[]).map(p=>{const act=(p.doc_type==='구매 상신'&&me.name!=='윤호성')?`<div class="meta" style="color:var(--blue)">윤호성 대표 승인 대기</div>`:`<div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div>`;return `<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div>${act}</div>`;}).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
+    const cards=(pend||[]).map(p=>{const act=(p.doc_type==='구매 상신'&&me.name!=='윤호성')?`<div class="meta" style="color:var(--blue)">윤호성 대표 승인 대기</div>`:`<div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div>`;return `<div class="card" style="margin-top:10px"><div style="margin-bottom:8px;cursor:pointer" onclick="docModal='${p.id}';render()"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="event.stopPropagation();openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div>${act}</div>`;}).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
     const {data:alldocs}=await sb.from('documents').select('*,employees(name)').order('created_at',{ascending:false});
-    const allrows=(alldocs||[]).map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
+    const allrows=(alldocs||[]).map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row" onclick="docModal='${d.id}';render()" style="cursor:pointer"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="event.stopPropagation();openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
     admin=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div><h2 class="sec">전체 결재 내역</h2><div class="card">${allrows}</div><div style="height:8px"></div>`;
+  }
+  let docM='';
+  if(docModal){
+    const {data:dm}=await sb.from('documents').select('*,employees(name)').eq('id',docModal).maybeSingle();
+    if(dm){const bcol=dm.status==='승인'?'b-green':dm.status==='대기'?'b-amber':'b-red';
+      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 박영주 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;margin-top:14px"><button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
   }
   return `${admin}<div class="grid2"><div><h2 class="sec">결재 상신</h2><div class="card"><div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>${docFields()}
     <div class="field"><label>결재선</label><div style="font-size:13px;color:var(--muted)">${docType==='구매 상신'?'윤호성 (대표 승인) → 박영주 (경영지원 · 구매 진행)':'윤호성 · 배수빈 · 최성용 (대표 3인)'}</div></div>
     <button class="submit" onclick="submitDoc()">상신하기</button></div></div>
-    <div><h2 class="sec">내 상신 내역</h2><div class="card">${list}</div></div></div>`;
+    <div><h2 class="sec">내 상신 내역</h2><div class="card">${list}</div></div></div>${docM}`;
 }
 async function submitDoc(){
   let summary='', payload={}, receipt_path=null;
