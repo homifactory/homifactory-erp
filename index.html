@@ -79,6 +79,7 @@
   .navbtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:17px}
   .link{color:var(--blue);background:var(--blue-soft);border:none;border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:700}
   #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:24px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:9}#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .tdtag{font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:2px 8px;font-weight:700;white-space:nowrap;display:inline-block}
 </style>
 </head>
 <body>
@@ -123,6 +124,7 @@ let me=null, tab='home';
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
 let docType='야근·주말근무', leaveType='연차';
 let pendCounts={leave:0,doc:0};
+let meetSel=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function fmtT(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -156,7 +158,7 @@ async function refreshBadges(){
   pendCounts={leave:l.count||0,doc:d.count||0};
 }
 function navItems(){
-  const b=[['home','홈'],['att','근태'],['leave','휴가'],['approval','전자결재'],['cal','캘린더'],['todo','할 일'],['mypage','마이페이지']];
+  const b=[['home','홈'],['todo','할 일'],['cal','캘린더'],['meet','회의록'],['att','근태'],['leave','휴가'],['approval','전자결재'],['mypage','마이페이지']];
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
 }
@@ -165,9 +167,9 @@ function renderNav(){
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',att:'근태',leave:'휴가',approval:'전자결재',cal:'캘린더',todo:'할 일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',todo:'할 일',cal:'캘린더',meet:'회의록',att:'근태',leave:'휴가',approval:'전자결재',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function go(t){tab=t;render();$('view').scrollTop=0;}
-const VIEWS={home:viewHome,att:viewAtt,leave:viewLeave,approval:viewApproval,cal:viewCal,todo:viewTodo,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,att:viewAtt,leave:viewLeave,approval:viewApproval,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
@@ -199,9 +201,9 @@ function clockCard(a){
 /* ---------- 홈 ---------- */
 async function viewHome(){
   const a=await todayAtt();
-  const {data:todos}=await sb.from('todos').select('*').eq('employee_id',me.id).order('created_at');
+  const ts=await fetchTodoState();const todayItems=ts.defs.filter(applicableToday);
   const {data:evs}=await sb.from('events').select('*').gte('event_date',todayStr()).order('event_date').limit(5);
-  const tl=(todos||[]).map(t=>todoRow(t)).join('')||'<div class="empty">할 일이 없습니다</div>';
+  const tl=todayItems.map(t=>todoRow2(t,ts.compSet)).join('')||'<div class="empty">오늘 할 일이 없습니다</div>';
   const el=(evs||[]).map(e=>`<div class="row"><div><div class="ttl">${esc(e.title)}</div><div class="meta">${e.event_date}</div></div><span class="badge2" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${esc(e.event_type)}</span></div>`).join('')||'<div class="empty">예정된 일정이 없습니다</div>';
   return `<div class="grid2"><div>${clockCard(a)}</div>
     <div><h2 class="sec">내 할 일</h2><div class="card">${tl}<div class="todoadd"><input id="td-in" placeholder="할 일 추가"><button onclick="addTodo()">+</button></div></div>
@@ -305,14 +307,56 @@ async function addEvent(){const t=$('ev-title').value.trim();if(!t){toast('제�
 async function delEvent(id){await sb.from('events').delete().eq('id',id);render();}
 
 /* ---------- 할 일 ---------- */
-function todoRow(t){return `<div class="tditem ${t.done?'done':''}"><label><input type="checkbox" ${t.done?'checked':''} onclick="toggleTodo('${t.id}',${t.done})"><span>${esc(t.content)}</span></label><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`;}
-async function viewTodo(){
-  const {data}=await sb.from('todos').select('*').eq('employee_id',me.id).order('created_at');
-  const list=(data||[]).map(todoRow).join('')||'<div class="empty">할 일이 없습니다</div>';
-  return `<h2 class="sec">내 할 일 · ${(data||[]).filter(t=>t.done).length}/${(data||[]).length} 완료</h2><div class="card" style="max-width:560px">${list}<div class="todoadd"><input id="td-in" placeholder="할 일을 입력하세요"><button onclick="addTodo()">+</button></div></div>`;
+const WD=['일','월','화','수','목','금','토'];
+function todayWeekday(){return new Date().getDay();}
+async function fetchTodoState(){
+  const {data:defs}=await sb.from('todos').select('*').eq('employee_id',me.id).order('created_at');
+  const {data:comps}=await sb.from('todo_completions').select('todo_id').eq('employee_id',me.id).eq('done_date',todayStr());
+  return {defs:defs||[],compSet:new Set((comps||[]).map(c=>c.todo_id))};
 }
-async function addTodo(){const el=$('td-in');const v=el.value.trim();if(!v)return;el.value='';await sb.from('todos').insert({employee_id:me.id,content:v});render();}
-async function toggleTodo(id,done){await sb.from('todos').update({done:!done}).eq('id',id);render();}
+function applicableToday(t){
+  if(t.recur_type==='daily')return true;
+  if(t.recur_type==='weekly')return t.weekday===todayWeekday();
+  return !t.done;
+}
+function todoChecked(t,compSet){return t.recur_type==='project'?!!t.done:compSet.has(t.id);}
+function todoTag(t){return t.recur_type==='daily'?'데일리':t.recur_type==='weekly'?('매주 '+WD[t.weekday]+'요일'):'프로젝트';}
+function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
+  return `<div class="tditem ${ck?'done':''}"><label><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><span>${esc(t.content)}</span></label><span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`;}
+async function toggleTodo2(id,rt,checked){
+  if(rt==='project'){await sb.from('todos').update({done:!checked}).eq('id',id);}
+  else if(checked){await sb.from('todo_completions').delete().eq('todo_id',id).eq('employee_id',me.id).eq('done_date',todayStr());}
+  else{await sb.from('todo_completions').insert({todo_id:id,employee_id:me.id,done_date:todayStr()});}
+  render();
+}
+async function viewTodo(){
+  const ts=await fetchTodoState();
+  const items=ts.defs.filter(applicableToday);
+  const list=items.map(t=>todoRow2(t,ts.compSet)).join('')||'<div class="empty">오늘 할 일이 없습니다</div>';
+  const byId={};ts.defs.forEach(t=>byId[t.id]=t);
+  const since=new Date(Date.now()-14*86400000).toISOString().slice(0,10);
+  const {data:recent}=await sb.from('todo_completions').select('todo_id,done_date').eq('employee_id',me.id).gte('done_date',since).order('done_date',{ascending:false});
+  const compRows=(recent||[]).filter(c=>byId[c.todo_id]).map(c=>`<div class="row"><div class="ttl" style="text-decoration:line-through;color:var(--muted)">${esc(byId[c.todo_id].content)} <span class="tdtag">${todoTag(byId[c.todo_id])}</span></div><div class="meta">${c.done_date}</div></div>`);
+  const projRows=ts.defs.filter(t=>t.recur_type==='project'&&t.done).map(t=>`<div class="row"><div class="ttl" style="text-decoration:line-through;color:var(--muted)">${esc(t.content)} <span class="tdtag">프로젝트</span></div><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`);
+  const doneList=[...projRows,...compRows].join('')||'<div class="empty">완료한 업무가 없습니다</div>';
+  const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===todayWeekday()?'selected':''}>${d}요일</option>`).join('');
+  return `<div class="grid2"><div>
+    <h2 class="sec">오늘 할 일</h2><div class="card" style="max-width:560px">${list}</div>
+    <h2 class="sec">할 일 추가</h2><div class="card" style="max-width:560px">
+      <div class="field"><label>내용</label><input id="td-in" placeholder="할 일을 입력하세요"></div>
+      <div class="field two"><div><label>분류</label><select id="td-type" onchange="document.getElementById('td-wdwrap').style.display=this.value==='weekly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div></div>
+      <button class="submit" onclick="addTodo()">추가</button>
+    </div></div>
+    <div><h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>`;
+}
+async function addTodo(){
+  const el=$('td-in');const v=el.value.trim();if(!v)return;
+  const rt=$('td-type')?$('td-type').value:'project';
+  const wd=(rt==='weekly'&&$('td-wd'))?parseInt($('td-wd').value):null;
+  el.value='';
+  await sb.from('todos').insert({employee_id:me.id,content:v,recur_type:rt,weekday:wd});
+  render();
+}
 async function delTodo(id){await sb.from('todos').delete().eq('id',id);render();}
 
 /* ---------- 인사(관리자) ---------- */
@@ -352,6 +396,35 @@ async function decideLeave(id,ok,empId,type,start){
   if(ok&&empId){const {data:emp}=await sb.from('employees').select('name').eq('id',empId).maybeSingle();await sb.from('events').insert({title:(emp?emp.name:'')+' '+type,event_date:start,event_type:'휴가',employee_id:empId,created_by:me.id});}
   toast(ok?'승인 + 캘린더 등록':'반려 완료');await refreshBadges();render();
 }
+
+/* ---------- 회의록 ---------- */
+function meetField(l,v){return v?`<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">${l}</div><div style="white-space:pre-wrap;margin-top:3px">${esc(v)}</div></div>`:'';}
+async function viewMeet(){
+  const {data:ms}=await sb.from('meetings').select('*').order('meet_date',{ascending:false});
+  let detail='';
+  if(meetSel){const m=(ms||[]).find(x=>x.id===meetSel);if(m){
+    detail=`<h2 class="sec">회의록 상세</h2><div class="card"><div class="ttl" style="font-size:16px">${esc(m.title)}</div><div class="meta">${m.meet_date}</div>${meetField('참석자',m.attendees)}${meetField('목표 / 목표 수치',m.goal)}${meetField('안건',m.agenda)}${meetField('결정 사항',m.decisions)}${meetField('할 일 · 담당자',m.action_items)}${meetField('비고',m.notes)}<div class="act" style="margin-top:14px"><button class="rj" onclick="meetSel=null;render()">닫기</button><button class="xmini" style="margin-left:8px" onclick="delMeet('${m.id}')">삭제</button></div></div>`;}}
+  const rows=(ms||[]).map(m=>`<div class="row"><div onclick="meetSel='${m.id}';render()" style="cursor:pointer;flex:1"><div class="ttl">${esc(m.title)}</div><div class="meta">${m.meet_date}${m.attendees?' · '+esc(m.attendees):''}</div></div></div>`).join('')||'<div class="empty">회의록이 없습니다</div>';
+  return `<div class="grid2"><div>
+    <h2 class="sec">회의록 작성</h2><div class="card">
+      <div class="field"><label>제목</label><input id="mt-title" placeholder="예: HOMI 6월 정기회의"></div>
+      <div class="field two"><div><label>날짜</label><input type="date" id="mt-date" value="${todayStr()}"></div><div><label>참석자</label><input id="mt-att" placeholder="윤호성, 배수빈 …"></div></div>
+      <div class="field"><label>목표 / 목표 수치</label><input id="mt-goal" placeholder="예: 목표 수치 10M"></div>
+      <div class="field"><label>안건</label><textarea id="mt-agenda" rows="4" placeholder="논의 안건"></textarea></div>
+      <div class="field"><label>결정 사항</label><textarea id="mt-dec" rows="3"></textarea></div>
+      <div class="field"><label>할 일 · 담당자</label><textarea id="mt-act" rows="4" placeholder="예: 컨택 리스트 정리 — 홍주·경주"></textarea></div>
+      <div class="field"><label>비고</label><textarea id="mt-notes" rows="2"></textarea></div>
+      <button class="submit" onclick="submitMeet()">회의록 저장</button>
+    </div></div>
+    <div><h2 class="sec">회의록 목록 (${(ms||[]).length})</h2><div class="card">${rows}</div>${detail}</div></div>`;
+}
+async function submitMeet(){
+  const t=$('mt-title').value.trim();if(!t){toast('제목을 입력하세요');return;}
+  const {error}=await sb.from('meetings').insert({title:t,meet_date:$('mt-date').value,attendees:$('mt-att').value,goal:$('mt-goal').value,agenda:$('mt-agenda').value,decisions:$('mt-dec').value,action_items:$('mt-act').value,notes:$('mt-notes').value,created_by:me.id});
+  if(error){toast('저장 실패: '+error.message);return;}
+  toast('회의록이 저장되었습니다');meetSel=null;render();
+}
+async function delMeet(id){await sb.from('meetings').delete().eq('id',id);if(meetSel===id)meetSel=null;render();}
 
 /* ---------- 마이페이지 ---------- */
 async function viewMyPage(){
