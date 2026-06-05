@@ -122,7 +122,7 @@ const GROUPS=['경영','마케팅','공연 및 퍼포먼스','매니지먼트','
 const EVC=t=>({'공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','공휴일':'#D64545','기타':'#6B7686'}[t]||'#6B7686');
 let me=null, tab='home';
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
-let docType='야근·주말근무', leaveType='연차';
+let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
 
@@ -245,9 +245,15 @@ async function submitLeave(){
 
 /* ---------- 전자결재 ---------- */
 function docFields(){
-  if(docType==='야근·주말근무') return `<div class="field"><label>근무 구분</label><select id="dc-kind"><option>평일 야근</option><option>주말 근무</option><option>공휴일 근무</option></select></div>
-    <div class="field"><label>근무 일자</label><input type="date" id="dc-date" value="${todayStr()}"></div>
+  if(docType==='야근·주말·외근') return `<div class="field"><label>근무 구분</label><select id="dc-kind"><option>평일 야근</option><option>주말 근무</option><option>공휴일 근무</option><option>외근</option></select></div>
+    <div class="field"><label>일자</label><input type="date" id="dc-date" value="${todayStr()}"></div>
     <div class="field two"><div><label>시작</label><input type="time" id="dc-s" value="18:00"></div><div><label>종료</label><input type="time" id="dc-e" value="21:00"></div></div>
+    <div class="field"><label>행선지 (외근 시)</label><input id="dc-place" placeholder="외근 장소 / 행선지"></div>
+    <div class="field"><label>사유</label><textarea id="dc-reason" rows="2"></textarea></div>`;
+  if(docType==='구매 상신') return `<div class="field"><label>품목명</label><input id="dc-item" placeholder="구매 품목"></div>
+    <div class="field two"><div><label>수량</label><input type="number" id="dc-qty" value="1"></div><div><label>예상 금액(원)</label><input type="number" id="dc-amt" placeholder="0"></div></div>
+    <div class="field"><label>구매처 (희망)</label><input id="dc-vendor" placeholder="판매처 / 링크"></div>
+    <div class="field"><label>결제 수단</label><select id="dc-card"><option>법인카드</option><option>개인카드</option><option>계좌이체</option><option>미정</option></select></div>
     <div class="field"><label>사유</label><textarea id="dc-reason" rows="2"></textarea></div>`;
   return `<div class="field"><label>지출 항목</label><select id="dc-cat"><option>식대</option><option>교통비</option><option>장비 구입</option><option>광고비</option><option>기타</option></select></div>
     <div class="field"><label>카드 구분</label><select id="dc-card"><option>법인카드</option><option>개인카드</option></select></div>
@@ -258,7 +264,7 @@ function docFields(){
 async function viewApproval(){
   const {data:mine}=await sb.from('documents').select('*').eq('employee_id',me.id).order('created_at',{ascending:false});
   const list=(mine||[]).map(d=>{const b=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}</div></div><span class="badge2 ${b}">${d.status}</span></div>`;}).join('')||'<div class="empty">상신 내역이 없습니다</div>';
-  const seg=['야근·주말근무','지출 결의'].map(t=>`<button class="${docType===t?'on':''}" onclick="docType='${t}';render()">${t}</button>`).join('');
+  const seg=['야근·주말·외근','지출 결의','구매 상신'].map(t=>`<button class="${docType===t?'on':''}" onclick="docType='${t}';render()">${t}</button>`).join('');
   let admin='';
   if(me.is_admin){
     const {data:pend}=await sb.from('documents').select('*,employees(name)').eq('status','대기').order('created_at');
@@ -272,7 +278,8 @@ async function viewApproval(){
 }
 async function submitDoc(){
   let summary='', payload={};
-  if(docType==='야근·주말근무'){const k=$('dc-kind').value,d=$('dc-date').value,s=$('dc-s').value,e=$('dc-e').value;summary=`${k} ${d} ${s}~${e}`;payload={kind:k,date:d,start:s,end:e,reason:$('dc-reason').value};}
+  if(docType==='야근·주말·외근'){const k=$('dc-kind').value,d=$('dc-date').value,st=$('dc-s').value,e=$('dc-e').value,place=$('dc-place')?$('dc-place').value:'';summary=`${k} ${d} ${st}~${e}${place?' · '+place:''}`;payload={kind:k,date:d,start:st,end:e,place,reason:$('dc-reason').value};}
+  else if(docType==='구매 상신'){const item=$('dc-item').value,qty=Number($('dc-qty').value||1),amt=Number($('dc-amt').value||0),v=$('dc-vendor').value,card=$('dc-card').value;summary=`${item} ${qty}개 · ${amt.toLocaleString()}원 [${card}]`;payload={item,qty,amount:amt,vendor:v,card,reason:$('dc-reason').value};}
   else{const c=$('dc-cat').value,card=$('dc-card').value,d=$('dc-date').value,amt=Number($('dc-amt').value||0),v=$('dc-vendor').value;summary=`[${card}] ${c} ${amt.toLocaleString()}원 · ${v||'-'}`;payload={cat:c,card,date:d,amount:amt,vendor:v,reason:$('dc-reason').value};}
   const {error}=await sb.from('documents').insert({employee_id:me.id,doc_type:docType,summary,payload,card_type:payload.card||null,status:'대기'});
   if(error){toast('오류: '+error.message);return;}
