@@ -235,7 +235,10 @@ async function viewLeave(){
     const {data:bals}=await sb.from('leave_balances').select('*').eq('year',yr);
     const bmap={};(bals||[]).forEach(b=>bmap[b.employee_id]=b);
     const lrows=(emps||[]).map(e=>{const bb=bmap[e.id];const tt=bb?bb.total_days:15;const uu=bb?bb.used_days:0;return `<div class="row"><div style="flex:1"><div class="ttl">${esc(e.name)}</div><div class="meta">${esc(e.dept||'')} · 잔여 ${tt-uu}일</div></div><div style="display:flex;gap:6px;align-items:center"><label style="font-size:12px;color:var(--muted)">총</label><input id="lb-t-${e.id}" type="number" value="${tt}" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"><label style="font-size:12px;color:var(--muted)">사용</label><input id="lb-u-${e.id}" type="number" value="${uu}" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"><button class="ap" onclick="saveLeaveBal('${e.id}')">저장</button></div></div>`;}).join('');
-    leaveAdmin=`<h2 class="sec" style="margin-top:20px">직원 연차 관리 (${yr})</h2><div class="card">${lrows}</div>`;
+    const nameById={};(emps||[]).forEach(e=>nameById[e.id]=e.name);
+    const {data:allreq}=await sb.from('leave_requests').select('*').order('created_at',{ascending:false});
+    const arows=(allreq||[]).map(l=>{const bb2=l.status==='승인'?'b-green':l.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(nameById[l.employee_id]||'')} · ${esc(l.leave_type)}</div><div class="meta">${l.start_date}${l.end_date!==l.start_date?' ~ '+l.end_date:''} · ${esc(l.reason||'')}</div></div><span class="badge2 ${bb2}">${l.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
+    leaveAdmin=`<h2 class="sec" style="margin-top:20px">직원 연차 관리 (${yr})</h2><div class="card">${lrows}</div><h2 class="sec" style="margin-top:20px">전체 직원 휴가 내역</h2><div class="card">${arows}</div>`;
   }
   return `<div class="card" style="display:flex;align-items:center;gap:16px;margin-bottom:16px"><div style="font-size:30px;font-weight:800;color:var(--blue)">${rem}<span style="font-size:14px;color:var(--muted);font-weight:600">일</span></div><div><div style="font-weight:700">잔여 연차 ${rem}일</div><div style="color:var(--muted);font-size:13px">올해 총 ${total}일 중 ${used}일 사용</div></div></div>
   <div class="grid2"><div><h2 class="sec">휴가 신청</h2><div class="card">
@@ -281,7 +284,9 @@ async function viewApproval(){
   if(me.is_admin){
     const {data:pend}=await sb.from('documents').select('*,employees(name)').eq('status','대기').order('created_at');
     const cards=(pend||[]).map(p=>`<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div><div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div></div>`).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
-    admin=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div>`;
+    const {data:alldocs}=await sb.from('documents').select('*,employees(name)').order('created_at',{ascending:false});
+    const allrows=(alldocs||[]).map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
+    admin=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div><h2 class="sec">전체 결재 내역</h2><div class="card">${allrows}</div><div style="height:8px"></div>`;
   }
   return `${admin}<div class="grid2"><div><h2 class="sec">결재 상신</h2><div class="card"><div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>${docFields()}
     <div class="field"><label>결재선</label><div style="font-size:13px;color:var(--muted)">윤호성 · 배수빈 · 최성용 (대표 3인)</div></div>
