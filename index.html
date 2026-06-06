@@ -187,10 +187,11 @@ async function punch(){
   const a=await todayAtt();
   if(!a) await sb.from('attendance').insert({employee_id:me.id,work_date:todayStr(),clock_in:new Date().toISOString(),status:'근무중'});
   else if(!a.clock_out) await sb.from('attendance').update({clock_out:new Date().toISOString(),status:'완료'}).eq('id',a.id);
-  else await sb.from('attendance').update({clock_in:new Date().toISOString(),clock_out:null,status:'근무중'}).eq('id',a.id);
+  else await sb.from('attendance').update({reclock_in:new Date().toISOString(),clock_out:null,status:'근무중'}).eq('id',a.id);
   toast('근태 기록 완료');render();
 }
 async function punchReset(){const a=await todayAtt();if(a){await sb.from('attendance').delete().eq('id',a.id);}toast('오늘 기록을 초기화했습니다');render();}
+function workDur(a){if(!a||!a.clock_in)return '—';const end=a.clock_out?new Date(a.clock_out):new Date();const ms=end-new Date(a.clock_in);if(ms<0)return '—';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return (h>0?h+'시간 ':'')+m+'분';}
 function clockCard(a){
   const inT=a?fmtT(a.clock_in):'—', outT=a&&a.clock_out?fmtT(a.clock_out):'—';
   const state=!a?'punch':(a.clock_out?'punch out':'punch out');
@@ -200,7 +201,7 @@ function clockCard(a){
   return `<div class="card clock"><div class="t">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div>
     <div class="d">${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) · ${esc(me.name)} 님</div>
     <button class="${a&&!a.clock_out?'punch out':'punch'}" ${dis?'disabled style=opacity:.6':''} onclick="punch()">${label}<small>${dis?'오늘 근무 종료':'클릭하여 기록'}</small></button>
-    <div class="statrow"><div class="stat"><div class="l">출근</div><div class="v">${inT}</div></div><div class="stat"><div class="l">퇴근</div><div class="v">${outT}</div></div><div class="stat"><div class="l">상태</div><div class="v">${a?(a.clock_out?'완료':'근무중'):'대기'}</div></div></div></div>`;
+    <div class="statrow"><div class="stat"><div class="l">출근</div><div class="v">${inT}</div></div>${a&&a.reclock_in?`<div class="stat"><div class="l">다시출근</div><div class="v">${fmtT(a.reclock_in)}</div></div>`:''}<div class="stat"><div class="l">퇴근</div><div class="v">${outT}</div></div><div class="stat"><div class="l">진행</div><div class="v">${a?workDur(a):'—'}</div></div></div></div>`;
 }
 
 /* ---------- 홈 ---------- */
@@ -473,7 +474,7 @@ async function viewTeam(){
   const {data:atts}=await sb.from('attendance').select('*').eq('work_date',todayStr());
   const attMap={};(atts||[]).forEach(a=>attMap[a.employee_id]=a);
   const working=(atts||[]).filter(a=>!a.clock_out).length, done=(atts||[]).filter(a=>a.clock_out).length, absent=(emps||[]).length-(atts||[]).length;
-  const team=(emps||[]).map(e=>{const a=attMap[e.id];const st=a?(a.clock_out?'완료':'근무중'):'미출근';const b=a?(a.clock_out?'b-blue':'b-green'):'b-amber';return `<div class="row"><div style="display:flex;align-items:center;gap:10px"><div class="av" style="background:var(--blue-soft);color:var(--blue)">${esc(e.name[0])}</div><div><div class="ttl">${esc(e.name)} ${esc(e.role||'')}</div><div class="meta">${esc(e.dept||'')} · ${a?fmtT(a.clock_in):'—'}</div></div></div><span class="badge2 ${b}">${st}</span></div>`;}).join('');
+  const team=(emps||[]).map(e=>{const a=attMap[e.id];const st=a?(a.clock_out?'완료':'근무중'):'미출근';const b=a?(a.clock_out?'b-blue':'b-green'):'b-amber';return `<div class="row"><div style="display:flex;align-items:center;gap:10px"><div class="av" style="background:var(--blue-soft);color:var(--blue)">${esc(e.name[0])}</div><div><div class="ttl">${esc(e.name)} ${esc(e.role||'')}</div><div class="meta">${esc(e.dept||'')}${a?` · 출근 ${fmtT(a.clock_in)}${a.reclock_in?' · 다시출근 '+fmtT(a.reclock_in):''} · 퇴근 ${a.clock_out?fmtT(a.clock_out):'—'} · 진행 ${workDur(a)}`:' · 미출근'}</div></div></div><span class="badge2 ${b}">${st}</span></div>`;}).join('');
   const nameById={};(emps||[]).forEach(e=>nameById[e.id]=e.name);
   const {data:pend}=await sb.from('leave_requests').select('*').eq('status','대기').order('created_at');
   const pl=(pend||[]).map(p=>`<div class="card" style="margin-top:10px"><div style="margin-bottom:8px"><div class="ttl">${esc(nameById[p.employee_id]||'')} · ${esc(p.leave_type)}</div><div class="meta">${p.start_date}${p.end_date!==p.start_date?' ~ '+p.end_date:''} · ${esc(p.reason||'')}</div></div><div class="act"><button class="ap" onclick="decideLeave('${p.id}',true,'${p.employee_id}','${esc(p.leave_type)}','${p.start_date}')">승인</button><button class="rj" onclick="decideLeave('${p.id}',false)">반려</button></div></div>`).join('')||'<div class="card"><div class="empty">대기 중인 휴가 신청이 없습니다</div></div>';
