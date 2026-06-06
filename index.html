@@ -187,20 +187,19 @@ async function punch(){
   const a=await todayAtt();
   if(!a) await sb.from('attendance').insert({employee_id:me.id,work_date:todayStr(),clock_in:new Date().toISOString(),status:'근무중'});
   else if(!a.clock_out) await sb.from('attendance').update({clock_out:new Date().toISOString(),status:'완료'}).eq('id',a.id);
-  else { toast('오늘 근태가 이미 완료되었습니다'); return; }
+  else await sb.from('attendance').update({clock_in:new Date().toISOString(),clock_out:null,status:'근무중'}).eq('id',a.id);
   toast('근태 기록 완료');render();
 }
 async function punchReset(){const a=await todayAtt();if(a){await sb.from('attendance').delete().eq('id',a.id);}toast('오늘 기록을 초기화했습니다');render();}
 function clockCard(a){
   const inT=a?fmtT(a.clock_in):'—', outT=a&&a.clock_out?fmtT(a.clock_out):'—';
   const state=!a?'punch':(a.clock_out?'punch out':'punch out');
-  const label=!a?'출근하기':(a.clock_out?'완료':'퇴근하기');
-  const dis=a&&a.clock_out;
+  const label=!a?'출근하기':(a.clock_out?'다시 출근':'퇴근하기');
+  const dis=false;
   const d=new Date();const days=['일','월','화','수','목','금','토'];
   return `<div class="card clock"><div class="t">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div>
     <div class="d">${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) · ${esc(me.name)} 님</div>
-    <button class="${a&&a.clock_out?'punch out':'punch'}" ${dis?'disabled style=opacity:.6':''} onclick="punch()">${label}<small>${dis?'오늘 근무 종료':'클릭하여 기록'}</small></button>
-    ${a?`<button onclick="punchReset()" style="background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;margin:8px 0">기록 초기화 · 다시 출근</button>`:''}
+    <button class="${a&&!a.clock_out?'punch out':'punch'}" ${dis?'disabled style=opacity:.6':''} onclick="punch()">${label}<small>${dis?'오늘 근무 종료':'클릭하여 기록'}</small></button>
     <div class="statrow"><div class="stat"><div class="l">출근</div><div class="v">${inT}</div></div><div class="stat"><div class="l">퇴근</div><div class="v">${outT}</div></div><div class="stat"><div class="l">상태</div><div class="v">${a?(a.clock_out?'완료':'근무중'):'대기'}</div></div></div></div>`;
 }
 
@@ -493,14 +492,16 @@ async function viewMeet(){
   const {data:ms}=await sb.from('meetings').select('*').order('meet_date',{ascending:false});
   let detail='';
   if(meetSel){const m=(ms||[]).find(x=>x.id===meetSel);if(m){
-    detail=`<h2 class="sec">회의록 상세</h2><div class="card"><div class="ttl" style="font-size:16px">${esc(m.title)}</div><div class="meta">${m.meet_date}</div>${meetField('참석자',m.attendees)}${meetField('목표 / 목표 수치',m.goal)}${meetField('안건',m.agenda)}${meetField('결정 사항',m.decisions)}${meetField('할 일 · 담당자',m.action_items)}${meetField('비고',m.notes)}<div class="act" style="margin-top:14px"><button class="rj" onclick="meetSel=null;render()">닫기</button><button class="xmini" style="margin-left:8px" onclick="delMeet('${m.id}')">삭제</button></div></div>`;}}
+    detail=`<h2 class="sec">회의록 상세</h2><div class="card"><div class="ttl" style="font-size:16px">${esc(m.title)}</div><div class="meta">${m.meet_date}${m.meet_time?' '+m.meet_time:''}</div>${meetField('참석자',m.attendees)}${meetField('핵심 내용',m.key_points)}${meetField('내용',m.content)}${meetField('결정 사항',m.decisions)}${meetField('할 일 · 담당자',m.action_items)}${meetField('비고',m.notes)}${m.audio_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openMeetAudio('${m.audio_path}')">🎧 녹음 듣기</button></div>`:''}<div class="act" style="margin-top:14px"><button class="rj" onclick="meetSel=null;render()">닫기</button><button class="xmini" style="margin-left:8px" onclick="delMeet('${m.id}')">삭제</button></div></div>`;}}
   const rows=(ms||[]).map(m=>`<div class="row"><div onclick="meetSel='${m.id}';render()" style="cursor:pointer;flex:1"><div class="ttl">${esc(m.title)}</div><div class="meta">${m.meet_date}${m.attendees?' · '+esc(m.attendees):''}</div></div></div>`).join('')||'<div class="empty">회의록이 없습니다</div>';
   return `<div class="grid2"><div>
     <h2 class="sec">회의록 작성</h2><div class="card">
       <div class="field"><label>제목</label><input id="mt-title" placeholder="예: HOMI 6월 정기회의"></div>
-      <div class="field two"><div><label>날짜</label><input type="date" id="mt-date" value="${todayStr()}"></div><div><label>참석자</label><input id="mt-att" placeholder="윤호성, 배수빈 …"></div></div>
-      <div class="field"><label>목표 / 목표 수치</label><input id="mt-goal" placeholder="예: 목표 수치 10M"></div>
-      <div class="field"><label>안건</label><textarea id="mt-agenda" rows="4" placeholder="논의 안건"></textarea></div>
+      <div class="field two"><div><label>날짜</label><input type="date" id="mt-date" value="${todayStr()}"></div><div><label>시간</label><input type="time" id="mt-time"></div></div>
+      <div class="field"><label>참석자</label><input id="mt-att" placeholder="윤호성, 배수빈 …"></div>
+      <div class="field"><label>회의 녹음 (자동 받아쓰기 → 내용)</label><div style="display:flex;gap:8px;align-items:center"><button type="button" id="mt-recbtn" onclick="meetRecToggle()" style="background:var(--red);color:#fff;border:none;border-radius:9px;padding:8px 14px;font-weight:600;cursor:pointer">● 녹음 시작</button><span id="mt-recstat" class="meta"></span></div><div class="meta" style="margin-top:4px;color:var(--muted)">녹음 중 음성이 크롬에서 자동으로 '내용'에 받아쓰기됩니다. 정지하면 녹음 파일이 함께 저장됩니다.</div></div>
+      <div class="field"><label>핵심 내용</label><textarea id="mt-key" rows="3" placeholder="핵심 요약"></textarea></div>
+      <div class="field"><label>내용 (전체)</label><textarea id="mt-content" rows="6" placeholder="회의 전반 내용 (녹음 시 자동 입력)"></textarea></div>
       <div class="field"><label>결정 사항</label><textarea id="mt-dec" rows="3"></textarea></div>
       <div class="field"><label>할 일 · 담당자</label><textarea id="mt-act" rows="4" placeholder="예: 컨택 리스트 정리 — 홍주·경주"></textarea></div>
       <div class="field"><label>비고</label><textarea id="mt-notes" rows="2"></textarea></div>
@@ -510,11 +511,46 @@ async function viewMeet(){
 }
 async function submitMeet(){
   const t=$('mt-title').value.trim();if(!t){toast('제목을 입력하세요');return;}
-  const {error}=await sb.from('meetings').insert({title:t,meet_date:$('mt-date').value,attendees:$('mt-att').value,goal:$('mt-goal').value,agenda:$('mt-agenda').value,decisions:$('mt-dec').value,action_items:$('mt-act').value,notes:$('mt-notes').value,created_by:me.id});
+  const {error}=await sb.from('meetings').insert({title:t,meet_date:$('mt-date').value,meet_time:$('mt-time')?$('mt-time').value:null,attendees:$('mt-att').value,key_points:$('mt-key')?$('mt-key').value:'',content:$('mt-content')?$('mt-content').value:'',decisions:$('mt-dec').value,action_items:$('mt-act').value,notes:$('mt-notes').value,audio_path:window._meetAudio||null,created_by:me.id});
   if(error){toast('저장 실패: '+error.message);return;}
-  toast('회의록이 저장되었습니다');meetSel=null;render();
+  window._meetAudio=null;toast('회의록이 저장되었습니다');meetSel=null;render();
 }
 async function delMeet(id){await sb.from('meetings').delete().eq('id',id);if(meetSel===id)meetSel=null;render();}
+window._meetAudio=null;let _mr=null,_mrChunks=[],_sr=null,_recOn=false;
+async function meetRecToggle(){ if(_recOn) await meetRecStop(); else await meetRecStart(); }
+async function meetRecStart(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    _mrChunks=[];_mr=new MediaRecorder(stream);
+    _mr.ondataavailable=e=>{if(e.data&&e.data.size)_mrChunks.push(e.data);};
+    _mr.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(_mrChunks,{type:_mr.mimeType||'audio/webm'});
+      const stat=document.getElementById('mt-recstat'); if(stat)stat.textContent='업로드 중…';
+      const path=`${me.id}/${Date.now()}.webm`;
+      const up=await sb.storage.from('meeting-audio').upload(path,blob,{contentType:blob.type});
+      if(up.error){toast('녹음 저장 실패: '+up.error.message);if(stat)stat.textContent='저장 실패';}
+      else{window._meetAudio=path;if(stat)stat.textContent='녹음 저장됨 ('+Math.round(blob.size/1024)+'KB)';}
+    };
+    _mr.start();
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(SR){_sr=new SR();_sr.lang='ko-KR';_sr.continuous=true;_sr.interimResults=false;
+      _sr.onresult=e=>{let txt='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)txt+=e.results[i][0].transcript+' ';}if(txt){const c=document.getElementById('mt-content');if(c)c.value=(c.value?c.value+' ':'')+txt.trim();}};
+      _sr.onend=()=>{if(_recOn){try{_sr.start();}catch(e){}}};
+      try{_sr.start();}catch(e){}
+    }
+    _recOn=true;
+    const b=document.getElementById('mt-recbtn');if(b){b.textContent='■ 녹음 정지';b.style.background='var(--ink)';}
+    const stat=document.getElementById('mt-recstat');if(stat)stat.textContent='녹음 중…';
+  }catch(err){toast('마이크 접근 실패: '+(err.message||err));}
+}
+async function meetRecStop(){
+  _recOn=false;
+  if(_sr){try{_sr.stop();}catch(e){}_sr=null;}
+  if(_mr&&_mr.state!=='inactive'){try{_mr.stop();}catch(e){}}
+  const b=document.getElementById('mt-recbtn');if(b){b.textContent='● 녹음 시작';b.style.background='var(--red)';}
+}
+async function openMeetAudio(path){const {data,error}=await sb.storage.from('meeting-audio').createSignedUrl(path,600);if(error||!data){toast('녹음을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
 
 /* ---------- 자료실 (아카이브 / 메뉴얼) ---------- */
 function arStars(n){n=n||0;return '★★★'.slice(0,n)+'☆☆☆'.slice(0,3-n);}
