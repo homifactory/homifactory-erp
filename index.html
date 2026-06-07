@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>호미팩토리 ERP</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F3864">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="호미 ERP">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
   :root{--navy:#1F3864;--blue:#2E75B6;--blue-soft:#E8F0FA;--ink:#1B2330;--muted:#6B7686;--line:#E6E9EF;--bg:#F4F6FA;
     --green:#1E9E6A;--green-soft:#E3F5EC;--amber:#C98A12;--amber-soft:#FBF1DD;--red:#D64545;--red-soft:#FBEAEA;
@@ -680,5 +688,6 @@ $('logout').onclick=async()=>{await sb.auth.signOut();showLogin();};
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='td-in')addTodo();});
 sb.auth.getSession().then(({data})=>{if(data.session)afterLogin(data.session.user);});
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
