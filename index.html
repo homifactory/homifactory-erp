@@ -411,9 +411,9 @@ async function gcalSync(){
     const linkMap={};(links||[]).forEach(l=>linkMap[l.event_id]=l.gcal_id);
     let pushed=0,updated=0;
     for(const e of (evs||[])){
-      const body=evToGcalBody(e);
+      const body=evToGcalBody(e);body.extendedProperties={private:{erpId:String(e.id)}};
       if(linkMap[e.id]){await fetch(GCAL+'/'+encodeURIComponent(linkMap[e.id]),{method:'PATCH',headers:gcalHeaders(),body:JSON.stringify(body)});updated++;}
-      else{const r=await fetch(GCAL,{method:'POST',headers:gcalHeaders(),body:JSON.stringify(body)});if(r.status===401)throw{c401:true};const j=await r.json();if(j.id){await sb.from('gcal_links').insert({event_id:e.id,employee_id:me.id,gcal_id:j.id});pushed++;}}
+      else{const r=await fetch(GCAL,{method:'POST',headers:gcalHeaders(),body:JSON.stringify(body)});if(r.status===401)throw{c401:true};const j=await r.json();if(j.id){await sb.from('gcal_links').upsert({event_id:e.id,employee_id:me.id,gcal_id:j.id},{onConflict:'event_id,employee_id'});linkMap[e.id]=j.id;pushed++;}}
     }
     const timeMin=new Date(calY,calM,1).toISOString();
     const timeMax=new Date(calY,calM+1,1).toISOString();
@@ -425,6 +425,7 @@ async function gcalSync(){
     const rows=[];let pulled=0;
     for(const it of items){
       if(mine.has(it.id))continue;
+      if(it.extendedProperties&&it.extendedProperties.private&&it.extendedProperties.private.erpId)continue;
       if(it.status==='cancelled')continue;
       const sdate=it.start&&(it.start.date||((it.start.dateTime||'').slice(0,10)));
       if(!sdate||sdate<mfrom||sdate>mto)continue;
