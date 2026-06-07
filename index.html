@@ -129,7 +129,7 @@ const sb=window.supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GROUPS=['경영','마케팅','공연 및 퍼포먼스','매니지먼트','틱톡 라이브','컨텐츠'];
-const EVC=t=>({'공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','공휴일':'#D64545','기타':'#6B7686'}[t]||'#6B7686');
+const EVC=t=>({'공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','기타':'#6B7686'}[t]||'#6B7686');
 let me=null, tab='home';
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
 let docType='야근·주말·외근', leaveType='연차';
@@ -262,12 +262,17 @@ async function viewLeave(){
     <button class="submit" onclick="submitLeave()">신청하기</button></div></div>
     <div><h2 class="sec">내 신청 내역</h2><div class="card">${list}</div></div></div>${leaveAdmin}`;
 }
+function dateRange(f,t){const out=[];let d=new Date(f+'T00:00:00');const end=new Date(t+'T00:00:00');let n=0;while(d<=end&&n<62){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);n++;}return out;}
 async function submitLeave(){
   const f=$('lv-from').value,t=$('lv-to').value,r=$('lv-reason').value;
   if(!f||!t){toast('기간을 입력하세요');return;}
-  const {error}=await sb.from('leave_requests').insert({employee_id:me.id,leave_type:leaveType,start_date:f,end_date:t,reason:r,status:'대기'});
+  const {data:ins,error}=await sb.from('leave_requests').insert({employee_id:me.id,leave_type:leaveType,start_date:f,end_date:t,reason:r,status:'대기'}).select('id').maybeSingle();
   if(error){toast('오류: '+error.message);return;}
-  toast('휴가 신청 완료 (결재 대기)');render();
+  if(ins){
+    const evs=dateRange(f,t).map(d=>({title:me.name+' '+leaveType,event_date:d,event_type:'휴가대기',employee_id:me.id,created_by:me.id,leave_id:ins.id}));
+    if(evs.length){const {error:e2}=await sb.from('events').insert(evs);if(e2){toast('휴가 신청됨(캘린더 표시 실패: '+e2.message+')');render();return;}}
+  }
+  toast('휴가 신청 완료 · 캘린더에 표시됨 (결재 대기)');render();
 }
 async function saveLeaveBal(empId){const yr=new Date().getFullYear();const t=Number($('lb-t-'+empId).value||0),u=Number($('lb-u-'+empId).value||0);const {error}=await sb.from('leave_balances').upsert({employee_id:empId,year:yr,total_days:t,used_days:u});if(error){toast('저장 실패: '+error.message);return;}toast('연차 정보 저장됨');render();}
 
@@ -526,8 +531,13 @@ async function viewTeam(){
 }
 async function decideLeave(id,ok,empId,type,start){
   await sb.from('leave_requests').update({status:ok?'승인':'반려',approver_id:me.id,decided_at:new Date().toISOString()}).eq('id',id);
-  if(ok&&empId){const {data:emp}=await sb.from('employees').select('name').eq('id',empId).maybeSingle();await sb.from('events').insert({title:(emp?emp.name:'')+' '+type,event_date:start,event_type:'휴가',employee_id:empId,created_by:me.id});}
-  toast(ok?'승인 + 캘린더 등록':'반려 완료');await refreshBadges();render();
+  if(ok){
+    const {data:upd}=await sb.from('events').update({event_type:'휴가'}).eq('leave_id',id).select('id');
+    if((!upd||!upd.length)&&empId){const {data:emp}=await sb.from('employees').select('name').eq('id',empId).maybeSingle();await sb.from('events').insert({title:(emp?emp.name:'')+' '+type,event_date:start,event_type:'휴가',employee_id:empId,created_by:me.id,leave_id:id});}
+  }else{
+    await sb.from('events').delete().eq('leave_id',id);
+  }
+  toast(ok?'승인 · 캘린더 반영':'반려 · 캘린더에서 제거');await refreshBadges();render();
 }
 
 /* ---------- 회의록 ---------- */
