@@ -212,6 +212,33 @@ function clockCard(a){
     <div class="statrow"><div class="stat"><div class="l">출근</div><div class="v">${inT}</div></div>${a&&a.reclock_in?`<div class="stat"><div class="l">다시출근</div><div class="v">${fmtT(a.reclock_in)}</div></div>`:''}<div class="stat"><div class="l">퇴근</div><div class="v">${outT}</div></div><div class="stat"><div class="l">진행</div><div class="v">${a?workDur(a):'—'}</div></div></div></div>`;
 }
 
+/* ---------- 뽀모도로 타이머 ---------- */
+window.pomo=window.pomo||{phase:'work',left:25*60,running:false,work:25,brk:5,done:0};
+function pomoFmt(s){s=Math.max(0,s|0);const m=Math.floor(s/60),x=s%60;return String(m).padStart(2,'0')+':'+String(x).padStart(2,'0');}
+function pomoBeep(){try{const ac=new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(0.0001,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.15,ac.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+0.5);o.start();o.stop(ac.currentTime+0.5);setTimeout(()=>ac.close(),700);}catch(e){}}
+function pomoCard(){const p=window.pomo;const C=2*Math.PI*52;const total=(p.phase==='work'?p.work:p.brk)*60;const off=C*(1-(total?p.left/total:0));const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const setv=p.work+'/'+p.brk;
+  const opt=(w,b,l)=>`<option value="${w}/${b}" ${setv===w+'/'+b?'selected':''}>${l}</option>`;
+  return `<div class="card" id="pomo-card" style="margin-top:16px;text-align:center;border:1px solid ${col}33">
+    <div style="font-weight:700;font-size:13px;color:var(--muted);margin-bottom:8px">뽀모도로 · <span id="pomo-phase" style="color:${col}">${p.phase==='work'?'집중':'휴식'}</span></div>
+    <div style="position:relative;width:148px;height:148px;margin:0 auto">
+      <svg width="148" height="148" viewBox="0 0 120 120" style="transform:rotate(-90deg)"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="9"></circle><circle id="pomo-ring" cx="60" cy="60" r="52" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"></circle></svg>
+      <div id="pomo-time" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;letter-spacing:1px">${pomoFmt(p.left)}</div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+      <button id="pomo-toggle" onclick="pomoToggle()" class="submit" style="width:auto;padding:9px 26px;margin:0">${p.running?'일시정지':'시작'}</button>
+      <button onclick="pomoSkip()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer">건너뛰기</button>
+      <button onclick="pomoReset()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer">리셋</button>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted)">오늘 완료 <b id="pomo-count" style="color:var(--ink)">${p.done}</b>회 · <select onchange="var v=this.value.split('/');pomoSet(+v[0],+v[1])" style="border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:12px;font-family:inherit">${opt(25,5,'25 / 5분')}${opt(50,10,'50 / 10분')}${opt(15,3,'15 / 3분')}</select></div>
+  </div>`;}
+function pomoSync(){const p=window.pomo;const el=document.getElementById('pomo-time');if(!el)return;el.textContent=pomoFmt(p.left);const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const ph=document.getElementById('pomo-phase');if(ph){ph.textContent=p.phase==='work'?'집중':'휴식';ph.style.color=col;}const C=2*Math.PI*52,total=(p.phase==='work'?p.work:p.brk)*60,ring=document.getElementById('pomo-ring');if(ring){ring.style.strokeDashoffset=C*(1-(total?p.left/total:0));ring.style.stroke=col;}const b=document.getElementById('pomo-toggle');if(b)b.textContent=p.running?'일시정지':'시작';const c=document.getElementById('pomo-count');if(c)c.textContent=p.done;const card=document.getElementById('pomo-card');if(card)card.style.borderColor=col+'33';}
+function pomoTick(){const p=window.pomo;if(!p.running)return;p.left--;if(p.left<=0){if(p.phase==='work'){p.done++;p.phase='break';p.left=p.brk*60;}else{p.phase='work';p.left=p.work*60;}pomoBeep();}pomoSync();}
+function pomoToggle(){const p=window.pomo;p.running=!p.running;if(p.running&&p.left<=0)p.left=(p.phase==='work'?p.work:p.brk)*60;pomoSync();}
+function pomoSkip(){const p=window.pomo;if(p.phase==='work'){p.phase='break';p.left=p.brk*60;}else{p.phase='work';p.left=p.work*60;}pomoSync();}
+function pomoReset(){const p=window.pomo;p.running=false;p.phase='work';p.left=p.work*60;pomoSync();}
+function pomoSet(w,b){const p=window.pomo;p.work=w;p.brk=b;if(!p.running){p.left=(p.phase==='work'?w:b)*60;}pomoSync();}
+if(!window._pomoInt)window._pomoInt=setInterval(pomoTick,1000);
+
 /* ---------- 홈 ---------- */
 async function viewHome(){
   const a=await todayAtt();
@@ -220,7 +247,7 @@ async function viewHome(){
   const tl=todayItems.map(t=>todoRow2(t,ts.compSet)).join('')||'<div class="empty">오늘 할 일이 없습니다</div>';
   const el=(evs||[]).map(e=>`<div class="row"><div><div class="ttl">${esc(e.title)}</div><div class="meta">${e.event_date}</div></div><span class="badge2" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${esc(e.event_type)}</span></div>`).join('')||'<div class="empty">예정된 일정이 없습니다</div>';
   const cal=await calendarBlock();
-  return `<div class="grid2"><div>${clockCard(a)}</div>
+  return `<div class="grid2"><div>${clockCard(a)}${pomoCard()}</div>
     <div><h2 class="sec">내 할 일</h2><div class="card">${tl}<div class="todoadd"><input id="td-in" placeholder="할 일 추가"><button onclick="addTodo()">+</button></div></div>
     <h2 class="sec">다가오는 일정</h2><div class="card">${el}</div></div></div>
     <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
