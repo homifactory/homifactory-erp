@@ -129,7 +129,7 @@ const sb=window.supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GROUPS=['경영','마케팅','공연 및 퍼포먼스','매니지먼트','틱톡 라이브','컨텐츠'];
-const EVC=t=>({'공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','기타':'#6B7686'}[t]||'#6B7686');
+const EVC=t=>({'공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','구글':'#4285F4','기타':'#6B7686'}[t]||'#6B7686');
 let me=null, tab='home';
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
 let docType='야근·주말·외근', leaveType='연차';
@@ -387,11 +387,71 @@ async function decideDoc(id,ok){
 let evEdit=null;
 function startEvEdit(id){evEdit=id;render();}
 async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제목을 입력하세요');return;}const {error}=await sb.from('events').update({title:t,event_date:$('ev-date').value,event_type:$('ev-type').value,event_time:$('ev-time')?$('ev-time').value:null}).eq('id',evEdit);if(error){toast('수정 실패: '+error.message);return;}evEdit=null;toast('일정이 수정되었습니다');render();}
+const GCAL='https://www.googleapis.com/calendar/v3/calendars/primary/events';
+window.gToken=window.gToken||null;
+function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
+function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
+function evToGcalBody(e){
+  if(e.event_time){const t=(e.event_time.length===5?e.event_time:e.event_time.slice(0,5));
+    const sd=new Date(e.event_date+'T'+t+':00');const ed=new Date(sd.getTime()+3600000);
+    const pad=n=>String(n).padStart(2,'0');
+    const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';
+    return {summary:e.title,start:{dateTime:fmt(sd),timeZone:'Asia/Seoul'},end:{dateTime:fmt(ed),timeZone:'Asia/Seoul'}};}
+  return {summary:e.title,start:{date:e.event_date},end:{date:plusDays(e.event_date,1)}};
+}
+async function gcalSync(){
+  if(!window.gToken){if(confirm('구글 캘린더 연동을 위해 구글 계정으로 다시 로그인(권한 동의)이 필요합니다. 지금 진행할까요?'))gcalRelogin();return;}
+  const btn=document.getElementById('gcal-btn');if(btn){btn.disabled=true;btn.textContent='동기화 중…';}
+  try{
+    const mfrom=`${calY}-${String(calM+1).padStart(2,'0')}-01`;
+    const lastDay=new Date(calY,calM+1,0).getDate();
+    const mto=`${calY}-${String(calM+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    const {data:evs}=await sb.from('events').select('*').gte('event_date',mfrom).lte('event_date',mto);
+    const {data:links}=await sb.from('gcal_links').select('event_id,gcal_id').eq('employee_id',me.id);
+    const linkMap={};(links||[]).forEach(l=>linkMap[l.event_id]=l.gcal_id);
+    let pushed=0,updated=0;
+    for(const e of (evs||[])){
+      const body=evToGcalBody(e);
+      if(linkMap[e.id]){await fetch(GCAL+'/'+encodeURIComponent(linkMap[e.id]),{method:'PATCH',headers:gcalHeaders(),body:JSON.stringify(body)});updated++;}
+      else{const r=await fetch(GCAL,{method:'POST',headers:gcalHeaders(),body:JSON.stringify(body)});if(r.status===401)throw{c401:true};const j=await r.json();if(j.id){await sb.from('gcal_links').insert({event_id:e.id,employee_id:me.id,gcal_id:j.id});pushed++;}}
+    }
+    const timeMin=new Date(calY,calM,1).toISOString();
+    const timeMax=new Date(calY,calM+1,1).toISOString();
+    const url=GCAL+'?singleEvents=true&orderBy=startTime&maxResults=250&timeMin='+encodeURIComponent(timeMin)+'&timeMax='+encodeURIComponent(timeMax);
+    const r2=await fetch(url,{headers:gcalHeaders()});if(r2.status===401)throw{c401:true};
+    const data=await r2.json();const items=data.items||[];
+    const mine=new Set(Object.values(linkMap));
+    await sb.from('gcal_events').delete().eq('employee_id',me.id).gte('event_date',mfrom).lte('event_date',mto);
+    const rows=[];let pulled=0;
+    for(const it of items){
+      if(mine.has(it.id))continue;
+      if(it.status==='cancelled')continue;
+      const sdate=it.start&&(it.start.date||((it.start.dateTime||'').slice(0,10)));
+      if(!sdate||sdate<mfrom||sdate>mto)continue;
+      const stime=(it.start&&it.start.dateTime)?it.start.dateTime.slice(11,16):null;
+      rows.push({employee_id:me.id,gcal_id:it.id,title:it.summary||'(제목 없음)',event_date:sdate,event_time:stime});pulled++;
+    }
+    if(rows.length)await sb.from('gcal_events').upsert(rows,{onConflict:'employee_id,gcal_id'});
+    window._gcalLast=new Date();
+    toast(`구글 캘린더 동기화 완료 · 내보냄 ${pushed} · 갱신 ${updated} · 가져옴 ${pulled}`);
+    render();
+  }catch(err){
+    if(err&&err.c401){if(confirm('구글 접근 토큰이 만료되었습니다. 다시 로그인(동의)할까요?'))gcalRelogin();}
+    else toast('동기화 오류: '+((err&&err.message)||err));
+    const b=document.getElementById('gcal-btn');if(b){b.disabled=false;b.textContent='🔄 구글 캘린더 동기화';}
+    return;
+  }
+  const b=document.getElementById('gcal-btn');if(b){b.disabled=false;b.textContent='🔄 구글 캘린더 동기화';}
+}
 async function calendarBlock(){
   const mfrom=`${calY}-${String(calM+1).padStart(2,'0')}-01`;
   const lastDay=new Date(calY,calM+1,0).getDate();
-  const {data:evs}=await sb.from('events').select('*').gte('event_date',mfrom).lte('event_date',`${calY}-${String(calM+1).padStart(2,'0')}-${lastDay}`);
-  const byDate={};(evs||[]).forEach(e=>{(byDate[e.event_date]=byDate[e.event_date]||[]).push(e);});
+  const mtoStr=`${calY}-${String(calM+1).padStart(2,'0')}-${lastDay}`;
+  const {data:evs}=await sb.from('events').select('*').gte('event_date',mfrom).lte('event_date',mtoStr);
+  let gevs=[];try{const r=await sb.from('gcal_events').select('*').gte('event_date',mfrom).lte('event_date',mtoStr);gevs=r.data||[];}catch(e){}
+  const gItems=gevs.map(g=>({id:'g_'+g.id,title:g.title,event_date:g.event_date,event_time:g.event_time,event_type:'구글',source:'google'}));
+  const allEv=[...(evs||[]),...gItems];
+  const byDate={};allEv.forEach(e=>{(byDate[e.event_date]=byDate[e.event_date]||[]).push(e);});
   const fd=new Date(calY,calM,1).getDay();const today=todayStr();const DOW=['일','월','화','수','목','금','토'];
   let cells='';
   for(let i=0;i<42;i++){const dn=i-fd+1;let out=false,cd=dn,cy=calY,cm=calM;
@@ -401,8 +461,8 @@ async function calendarBlock(){
     const ch=(byDate[ds]||[]).slice(0,3).map(e=>`<div class="evchip" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${e.event_time?esc(e.event_time)+' ':''}${esc(e.title)}</div>`).join('');
     cells+=`<div class="calcell ${out?'out':''} ${ds===today?'today':''} ${ds===calSel?'sel':''}" onclick="calSel='${ds}';evEdit=null;render()"><span class="dn">${cd}</span>${ch}</div>`;}
   const head=DOW.map(d=>`<div class="caldow">${d}</div>`).join('');
-  const selEvs=(evs||[]).filter(e=>e.event_date===calSel);
-  const sel=selEvs.map(e=>{const can=(e.created_by===me.id||me.is_admin);return `<div class="row"><div class="ttl">${e.event_time?`<b>${esc(e.event_time)}</b> `:''}${esc(e.title)} <span class="meta">${esc(e.event_type)}</span></div>${can?`<div><button class="xmini" style="color:var(--blue)" onclick="startEvEdit('${e.id}')">수정</button><button class="xmini" onclick="delEvent('${e.id}')">×</button></div>`:''}</div>`;}).join('')||'<div class="empty">일정이 없습니다</div>';
+  const selEvs=allEv.filter(e=>e.event_date===calSel);
+  const sel=selEvs.map(e=>{const can=(e.source!=='google'&&(e.created_by===me.id||me.is_admin));return `<div class="row"><div class="ttl">${e.event_time?`<b>${esc(e.event_time)}</b> `:''}${esc(e.title)} <span class="meta">${esc(e.event_type)}</span></div>${can?`<div><button class="xmini" style="color:var(--blue)" onclick="startEvEdit('${e.id}')">수정</button><button class="xmini" onclick="delEvent('${e.id}')">×</button></div>`:''}</div>`;}).join('')||'<div class="empty">일정이 없습니다</div>';
   const editing=evEdit?(evs||[]).find(e=>e.id===evEdit):null;
   const tval=editing?editing.title:'';
   const tmval=editing?(editing.event_time||''):'';
@@ -410,7 +470,7 @@ async function calendarBlock(){
   const typeOpts=['회의','공연','라이브','휴가','공휴일','기타'].map(t=>`<option ${editing&&editing.event_type===t?'selected':''}>${t}</option>`).join('');
   const formTitle=editing?'일정 수정':'일정 추가';
   const formBtn=editing?`<button class="submit" onclick="saveEvEdit()">수정 저장</button><button class="xmini" style="margin-left:8px" onclick="evEdit=null;render()">취소</button>`:`<button class="submit" onclick="addEvent()">추가</button>`;
-  return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><button class="navbtn" onclick="calMove(-1)">‹</button><div style="font-weight:700;font-size:17px;min-width:110px;text-align:center">${calY}년 ${calM+1}월</div><button class="navbtn" onclick="calMove(1)">›</button></div>
+  return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><button class="navbtn" onclick="calMove(-1)">‹</button><div style="font-weight:700;font-size:17px;min-width:110px;text-align:center">${calY}년 ${calM+1}월</div><button class="navbtn" onclick="calMove(1)">›</button><div style="flex:1"></div><button id="gcal-btn" onclick="gcalSync()" title="이 달 일정을 구글 캘린더와 양방향 동기화" style="background:#fff;border:1px solid #4285F4;color:#4285F4;border-radius:9px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer">🔄 구글 캘린더 동기화</button></div>
   <div class="calwrap"><div class="calhead">${head}</div><div class="calgrid">${cells}</div></div>
   <div class="grid2" style="margin-top:16px"><div><h2 class="sec">${calSel} 일정</h2><div class="card">${sel}</div></div>
   <div><h2 class="sec">${formTitle}</h2><div class="card"><div class="field"><label>제목</label><input id="ev-title" value="${esc(tval)}"></div><div class="field two"><div><label>날짜</label><input type="date" id="ev-date" value="${dval}"></div><div><label>시간</label><input type="time" id="ev-time" value="${tmval}"></div></div><div class="field"><label>구분</label><select id="ev-type">${typeOpts}</select></div>${formBtn}</div></div></div>`;
@@ -724,13 +784,14 @@ async function doLogin(){
 $('loginBtn').onclick=doLogin;
 $('googleBtn').onclick=async()=>{
   const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,queryParams:{hd:'homifactory.com',prompt:'select_account'}}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
   if(error){m.textContent='구글 로그인 실패: '+error.message;}
 };
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('logout').onclick=async()=>{await sb.auth.signOut();showLogin();};
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='td-in')addTodo();});
-sb.auth.getSession().then(({data})=>{if(data.session)afterLogin(data.session.user);});
+sb.auth.getSession().then(({data})=>{if(data.session){if(data.session.provider_token)window.gToken=data.session.provider_token;afterLogin(data.session.user);}});
+sb.auth.onAuthStateChange((ev,session)=>{if(session&&session.provider_token)window.gToken=session.provider_token;});
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
