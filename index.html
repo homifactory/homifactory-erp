@@ -91,6 +91,10 @@
   .tditem label{flex:1;display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer}.tditem input{width:18px;height:18px;accent-color:var(--blue)}.xmini{color:var(--red);background:none;border:none;cursor:pointer;font-size:15px;font-weight:700}
   .todoadd{display:flex;gap:8px;margin-top:11px}.todoadd input{flex:1;border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:13px;outline:none}.todoadd input:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(47,107,228,.13)}.todoadd button{width:42px;border-radius:11px;background:var(--blue);color:#fff;font-weight:700;font-size:16px;border:none}.todoadd button:hover{background:var(--blue-strong)}
   .empty{text-align:center;color:var(--muted);font-size:13px;padding:20px 0}
+  .fldgrp{margin-bottom:4px}.fldgrp:last-child{margin-bottom:0}
+  .fldhd{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--ink);margin:16px 2px 3px}
+  .card .fldgrp:first-child .fldhd{margin-top:2px}
+  .fldhd .cnt{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border-radius:10px;padding:1px 8px}
   .calwrap{border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
   .calhead{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--line)}.caldow{text-align:center;padding:9px 0;font-size:12px;font-weight:700;color:var(--muted)}
   .calgrid{display:grid;grid-template-columns:repeat(7,1fr)}.calcell{min-height:86px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 7px;cursor:pointer;overflow:hidden}.calcell:nth-child(7n){border-right:none}
@@ -520,10 +524,18 @@ async function toggleTodo2(id,rt,checked){
   else{await sb.from('todo_completions').insert({todo_id:id,employee_id:me.id,done_date:todayStr()});}
   render();
 }
+function groupTodoByField(items,compSet){
+  if(!items.length)return '<div class="empty">오늘 할 일이 없습니다</div>';
+  const order=['틱톡','그룹라이브','마케팅','매니지먼트','경영/전략','미지정'];
+  const fc={'틱톡':'#111','그룹라이브':'#7F77DD','마케팅':'#D85A30','매니지먼트':'#16A06B','경영/전략':'#2F6BE4','미지정':'#8A93A2'};
+  const g={};items.forEach(t=>{const f=t.field||'미지정';(g[f]=g[f]||[]).push(t);});
+  const keys=[...order.filter(k=>g[k]),...Object.keys(g).filter(k=>!order.includes(k))];
+  return keys.map(k=>`<div class="fldgrp"><div class="fldhd" style="--fc:${fc[k]||'#8A93A2'}"><span style="width:4px;height:13px;border-radius:3px;background:${fc[k]||'#8A93A2'};display:inline-block"></span>${esc(k)}<span class="cnt">${g[k].length}</span></div>${g[k].map(t=>todoRow2(t,compSet)).join('')}</div>`).join('');
+}
 async function viewTodo(){
   const ts=await fetchTodoState();
   const items=sortByPrio(ts.defs.filter(applicableToday));
-  const list=items.map(t=>todoRow2(t,ts.compSet)).join('')||'<div class="empty">오늘 할 일이 없습니다</div>';
+  const list=groupTodoByField(items,ts.compSet);
   const byId={};ts.defs.forEach(t=>byId[t.id]=t);
   const since=new Date(Date.now()-14*86400000).toISOString().slice(0,10);
   const {data:recent}=await sb.from('todo_completions').select('todo_id,done_date').eq('employee_id',me.id).gte('done_date',since).order('done_date',{ascending:false});
