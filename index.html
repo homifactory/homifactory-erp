@@ -151,7 +151,7 @@ let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date()
 let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
-let arcModal=false;
+let arcModal=false;let arcEdit=null;
 let docModal=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -747,26 +747,36 @@ async function viewArchive(){
   const {data:arc}=await sb.from('archives').select('*').order('created_at',{ascending:false});
   const {data:emps}=await sb.from('employees').select('id,name').order('name');
   const cats=['TIKTOK','BENEFIT','마케팅','공연','매니지먼트','업무','기타'];
-  const catOpts=cats.map(c=>`<option>${c}</option>`).join('');
-  const arows=(arc||[]).map(a=>{const vt=(a.visibility&&a.visibility!=='전체')?` <span class="tdtag">${a.visibility==='부서'?'부서 한정':'지정 공개'}</span>`:'';return `<div class="row"><div style="flex:1"><div class="ttl">${a.category?`<span class="tdtag">${esc(a.category)}</span> `:''}<span style="color:#E8A300">${arStars(a.impact)}</span> ${a.url?`<a href="${esc(a.url)}" target="_blank" style="color:var(--blue)">${esc(a.title)}</a>`:esc(a.title)}${a.file_path?` <button class="xmini" style="color:var(--blue)" onclick="openArchiveFile('${a.file_path}')">📎 ${esc(a.file_name||'파일')}</button>`:''}${vt}</div>${a.note?`<div class="meta">${esc(a.note)}</div>`:''}</div><div style="display:flex;align-items:center;gap:8px"><span class="meta">${(a.created_at||'').slice(0,10)}</span><button class="xmini" onclick="delArchive('${a.id}')">×</button></div></div>`;}).join('')||'<div class="empty">등록된 자료가 없습니다</div>';
-  const deptChecks=GROUPS.map(g=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:4px 10px 4px 0;font-size:13px"><input type="checkbox" class="ar-dept" value="${esc(g)}">${esc(g)}</label>`).join('');
-  const peopleChecks=(emps||[]).map(e=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:4px 10px 4px 0;font-size:13px"><input type="checkbox" class="ar-person" value="${e.id}">${esc(e.name)}</label>`).join('');
-  const modal=arcModal?`<div class="modalbg" onclick="if(event.target===this){arcModal=false;render()}"><div class="modalbox">
-    <div style="font-weight:700;font-size:16px;margin-bottom:6px">자료 · 메뉴얼 추가</div>
-    <div class="field"><label>제목</label><input id="ar-title" placeholder="제목"></div>
-    <div class="field two"><div><label>분야</label><select id="ar-cat">${catOpts}</select></div><div><label>임팩트</label><select id="ar-impact"><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></div></div>
-    <div class="field"><label>링크</label><input id="ar-url" placeholder="https://"></div>
-    <div class="field"><label>파일 첨부 (PPT·PDF·Excel 등)</label><input type="file" id="ar-file" accept=".ppt,.pptx,.pdf,.xls,.xlsx,.doc,.docx,.csv,image/*"></div>
-    <div class="field"><label>공개 대상</label><select id="ar-vis" onchange="arcVis()"><option value="전체">전체 공개</option><option value="부서">특정 부서만</option><option value="지정">특정 사람만</option></select></div>
-    <div class="field" id="ar-deptbox" style="display:none"><label>공개 부서 선택</label><div>${deptChecks}</div></div>
-    <div class="field" id="ar-peoplebox" style="display:none"><label>공개 사람 선택</label><div>${peopleChecks}</div></div>
-    <div class="field"><label>코멘트</label><textarea id="ar-note" rows="2"></textarea></div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button onclick="arcModal=false;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">취소</button><button class="ap" onclick="addArchive()">저장</button></div>
+  const rowHtml=(a)=>{const vt=(a.visibility&&a.visibility!=='전체')?` <span class="tdtag">${a.visibility==='부서'?'부서 한정':'지정 공개'}</span>`:'';return `<div class="row"><div style="flex:1"><div class="ttl"><span style="color:#E8A300">${arStars(a.impact)}</span> ${a.url?`<a href="${esc(a.url)}" target="_blank" style="color:var(--blue)">${esc(a.title)}</a>`:esc(a.title)}${a.file_path?` <button class="xmini" style="color:var(--blue)" onclick="openArchiveFile('${a.file_path}')">📎 ${esc(a.file_name||'파일')}</button>`:''}${vt}</div>${a.note?`<div class="meta">${esc(a.note)}</div>`:''}</div><div style="display:flex;align-items:center;gap:8px"><span class="meta">${(a.created_at||'').slice(0,10)}</span><button class="xmini" style="color:var(--blue)" onclick="startArcEdit('${a.id}')">수정</button><button class="xmini" onclick="delArchive('${a.id}')">×</button></div></div>`;};
+  const byCat={};(arc||[]).forEach(a=>{const c=a.category||'기타';(byCat[c]=byCat[c]||[]).push(a);});
+  const catOrder=[...cats.filter(c=>byCat[c]),...Object.keys(byCat).filter(c=>!cats.includes(c))];
+  const arows=catOrder.length?catOrder.map(c=>`<div class="fldgrp"><div class="fldhd"><span style="width:4px;height:14px;border-radius:3px;background:var(--blue);display:inline-block"></span>${esc(c)}<span class="cnt">${byCat[c].length}</span></div>${byCat[c].map(rowHtml).join('')}</div>`).join(''):'<div class="empty">등록된 자료가 없습니다</div>';
+  const editing=arcEdit?(arc||[]).find(a=>a.id===arcEdit):null;
+  const catOptsE=cats.map(c=>`<option ${editing&&editing.category===c?'selected':''}>${c}</option>`).join('');
+  const impVal=editing?(editing.impact||3):3;
+  const impOpts=[3,2,1].map(n=>`<option value="${n}" ${impVal===n?'selected':''}>${'★'.repeat(n)}</option>`).join('');
+  const visVal=editing?(editing.visibility||'전체'):'전체';
+  const visOpts=[['전체','전체 공개'],['부서','특정 부서만'],['지정','특정 사람만']].map(o=>`<option value="${o[0]}" ${visVal===o[0]?'selected':''}>${o[1]}</option>`).join('');
+  const curDepts=(editing&&editing.target_depts)?editing.target_depts:[];
+  const curPeople=(editing&&editing.target_people)?editing.target_people:[];
+  const deptChecks=GROUPS.map(g=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:4px 10px 4px 0;font-size:13px"><input type="checkbox" class="ar-dept" value="${esc(g)}" ${curDepts.includes(g)?'checked':''}>${esc(g)}</label>`).join('');
+  const peopleChecks=(emps||[]).map(e=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:4px 10px 4px 0;font-size:13px"><input type="checkbox" class="ar-person" value="${e.id}" ${curPeople.includes(e.id)?'checked':''}>${esc(e.name)}</label>`).join('');
+  const modal=arcModal?`<div class="modalbg" onclick="if(event.target===this){arcModal=false;arcEdit=null;render()}"><div class="modalbox">
+    <div style="font-weight:700;font-size:16px;margin-bottom:6px">${editing?'자료 · 메뉴얼 수정':'자료 · 메뉴얼 추가'}</div>
+    <div class="field"><label>제목</label><input id="ar-title" placeholder="제목" value="${editing?esc(editing.title):''}"></div>
+    <div class="field two"><div><label>분야(부서)</label><select id="ar-cat">${catOptsE}</select></div><div><label>임팩트</label><select id="ar-impact">${impOpts}</select></div></div>
+    <div class="field"><label>링크</label><input id="ar-url" placeholder="https://" value="${editing&&editing.url?esc(editing.url):''}"></div>
+    <div class="field"><label>파일 첨부 (PPT·PDF·Excel 등)${editing&&editing.file_name?` · 현재: ${esc(editing.file_name)}`:''}</label><input type="file" id="ar-file" accept=".ppt,.pptx,.pdf,.xls,.xlsx,.doc,.docx,.csv,image/*"></div>
+    <div class="field"><label>공개 대상</label><select id="ar-vis" onchange="arcVis()">${visOpts}</select></div>
+    <div class="field" id="ar-deptbox" style="display:${visVal==='부서'?'':'none'}"><label>공개 부서 선택</label><div>${deptChecks}</div></div>
+    <div class="field" id="ar-peoplebox" style="display:${visVal==='지정'?'':'none'}"><label>공개 사람 선택</label><div>${peopleChecks}</div></div>
+    <div class="field"><label>코멘트</label><textarea id="ar-note" rows="2">${editing&&editing.note?esc(editing.note):''}</textarea></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button onclick="arcModal=false;arcEdit=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">취소</button>${editing?`<button class="ap" onclick="saveArchive()">수정 저장</button>`:`<button class="ap" onclick="addArchive()">저장</button>`}</div>
   </div></div>`:'';
   return `<div style="max-width:760px;margin:0 auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <h2 class="sec" style="margin:0">자료 · 메뉴얼 (${(arc||[]).length})</h2>
-      <button onclick="arcModal=true;render()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer">+ 추가</button>
+      <button onclick="arcEdit=null;arcModal=true;render()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer">+ 추가</button>
     </div>
     <div class="card">${arows}</div>
   </div>${modal}`;
@@ -783,6 +793,20 @@ async function addArchive(){
   const {error}=await sb.from('archives').insert({title:t,category:$('ar-cat').value,impact:Number($('ar-impact').value||3),url:$('ar-url').value,note:$('ar-note').value,file_path,file_name,visibility:vis,target_depts,target_people,created_by:me.id});
   if(error){toast('오류: '+error.message);return;}
   arcModal=false;toast('자료가 추가되었습니다');render();
+}
+function startArcEdit(id){arcEdit=id;arcModal=true;render();}
+async function saveArchive(){
+  const t=$('ar-title').value.trim();if(!t){toast('제목을 입력하세요');return;}
+  const vis=$('ar-vis')?$('ar-vis').value:'전체';
+  let target_depts=null,target_people=null;
+  if(vis==='부서'){target_depts=[...document.querySelectorAll('.ar-dept:checked')].map(c=>c.value);if(!target_depts.length){toast('공개할 부서를 선택하세요');return;}}
+  if(vis==='지정'){target_people=[...document.querySelectorAll('.ar-person:checked')].map(c=>c.value);if(!target_people.length){toast('공개할 사람을 선택하세요');return;}}
+  const upd={title:t,category:$('ar-cat').value,impact:Number($('ar-impact').value||3),url:$('ar-url').value,note:$('ar-note').value,visibility:vis,target_depts,target_people};
+  const fi=$('ar-file');
+  if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('archive-files').upload(path,f,{contentType:f.type});if(up.error){toast('파일 업로드 실패: '+up.error.message);return;}upd.file_path=path;upd.file_name=f.name;}
+  const {error}=await sb.from('archives').update(upd).eq('id',arcEdit);
+  if(error){toast('오류: '+error.message);return;}
+  arcModal=false;arcEdit=null;toast('수정되었습니다');render();
 }
 async function openArchiveFile(path){const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){toast('파일을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
 async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
