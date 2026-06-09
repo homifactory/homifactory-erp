@@ -175,7 +175,12 @@ async function afterLogin(user){
   $('meav').textContent=(me.name||'·')[0];$('mename').textContent=me.name||'';$('merole').textContent=(me.is_admin?'관리자 · ':'')+(me.role||'');
   const d=new Date();$('today').textContent=`${d.getMonth()+1}월 ${d.getDate()}일`;
   await refreshBadges();
+  fetchMailUnread();
   render();
+}
+async function fetchMailUnread(){
+  if(!window.gToken)return;
+  try{const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels/INBOX',{headers:{'Authorization':'Bearer '+window.gToken}});if(!r.ok)return;const j=await r.json();window._mailUnread=j.threadsUnread||0;renderNav();}catch(e){}
 }
 function showLogin(){$('app').classList.add('hidden');$('login').classList.remove('hidden');}
 
@@ -192,7 +197,7 @@ function navItems(){
 }
 function renderNav(){
   $('nav').innerHTML=navItems().map(([k,l])=>{
-    if(k==='mail')return `<button onclick="openCompanyMail()"><span>${l} ↗</span></button>`;
+    if(k==='mail')return `<button onclick="openCompanyMail()"><span>${l} ↗</span>${window._mailUnread?`<span class="badge">${window._mailUnread>99?'99+':window._mailUnread}</span>`:''}</button>`;
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
@@ -258,6 +263,7 @@ function pomoSet(w,b){const p=window.pomo;p.work=w;p.brk=b;if(!p.running){p.left
 function clockTick(){const el=document.getElementById('home-clock');if(!el)return;const d=new Date();el.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 if(!window._pomoInt)window._pomoInt=setInterval(pomoTick,1000);
 if(!window._clockInt)window._clockInt=setInterval(clockTick,1000);
+if(!window._mailInt)window._mailInt=setInterval(function(){if(me&&window.gToken)fetchMailUnread();},120000);
 
 /* ---------- 홈 ---------- */
 async function viewHome(){
@@ -413,7 +419,7 @@ async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제
 const GCAL='https://www.googleapis.com/calendar/v3/calendars/primary/events';
 window.gToken=window.gToken||null;
 function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
-function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
+function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
 function evToGcalBody(e){
   if(e.event_time){const t=(e.event_time.length===5?e.event_time:e.event_time.slice(0,5));
     const sd=new Date(e.event_date+'T'+t+':00');const ed=new Date(sd.getTime()+3600000);
@@ -852,7 +858,7 @@ async function doLogin(){
 $('loginBtn').onclick=doLogin;
 $('googleBtn').onclick=async()=>{
   const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
   if(error){m.textContent='구글 로그인 실패: '+error.message;}
 };
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
