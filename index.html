@@ -255,14 +255,16 @@ function pomoCard(){const p=window.pomo;const C=2*Math.PI*52;const total=(p.phas
     <div style="margin-top:12px;font-size:12px;color:var(--muted)">오늘 완료 <b id="pomo-count" style="color:var(--ink)">${p.done}</b>회 · <select onchange="var v=this.value.split('/');pomoSet(+v[0],+v[1])" style="border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:12px;font-family:inherit">${opt(25,5,'25 / 5분')}${opt(50,10,'50 / 10분')}${opt(15,3,'15 / 3분')}</select></div>
   </div>`;}
 function pomoSync(){const p=window.pomo;const el=document.getElementById('pomo-time');if(!el)return;el.textContent=pomoFmt(p.left);const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const ph=document.getElementById('pomo-phase');if(ph){ph.textContent=p.phase==='work'?'집중':'휴식';ph.style.color=col;}const C=2*Math.PI*52,total=(p.phase==='work'?p.work:p.brk)*60,ring=document.getElementById('pomo-ring');if(ring){ring.style.strokeDashoffset=C*(1-(total?p.left/total:0));ring.style.stroke=col;}const b=document.getElementById('pomo-toggle');if(b)b.textContent=p.running?'일시정지':'시작';const c=document.getElementById('pomo-count');if(c)c.textContent=p.done;const card=document.getElementById('pomo-card');if(card)card.style.borderColor=col+'33';}
-function pomoTick(){const p=window.pomo;if(!p.running)return;p.left--;if(p.left<=0){if(p.phase==='work'){p.done++;p.phase='break';p.left=p.brk*60;toast('집중 완료! 휴식하세요 ☕');}else{p.phase='work';p.left=p.work*60;toast('휴식 끝! 다시 집중 💪');}pomoBeep();}pomoSync();}
-function pomoToggle(){const p=window.pomo;p.running=!p.running;if(p.running&&p.left<=0)p.left=(p.phase==='work'?p.work:p.brk)*60;pomoSync();}
-function pomoSkip(){const p=window.pomo;if(p.phase==='work'){p.phase='break';p.left=p.brk*60;}else{p.phase='work';p.left=p.work*60;}pomoSync();}
+function pomoArm(){window.pomo.endAt=Date.now()+window.pomo.left*1000;}
+function pomoTick(){const p=window.pomo;if(!p.running)return;const rem=Math.round((p.endAt-Date.now())/1000);p.left=rem>0?rem:0;if(rem<=0){if(p.phase==='work'){p.done++;p.phase='break';p.left=p.brk*60;toast('집중 완료! 휴식하세요 ☕');}else{p.phase='work';p.left=p.work*60;toast('휴식 끝! 다시 집중 💪');}p.endAt=Date.now()+p.left*1000;pomoBeep();}pomoSync();}
+function pomoToggle(){const p=window.pomo;p.running=!p.running;if(p.running){if(p.left<=0)p.left=(p.phase==='work'?p.work:p.brk)*60;pomoArm();}pomoSync();}
+function pomoSkip(){const p=window.pomo;if(p.phase==='work'){p.phase='break';p.left=p.brk*60;}else{p.phase='work';p.left=p.work*60;}if(p.running)pomoArm();pomoSync();}
 function pomoReset(){const p=window.pomo;p.running=false;p.phase='work';p.left=p.work*60;pomoSync();}
-function pomoSet(w,b){const p=window.pomo;p.work=w;p.brk=b;if(!p.running){p.left=(p.phase==='work'?w:b)*60;}pomoSync();}
+function pomoSet(w,b){const p=window.pomo;p.work=w;p.brk=b;p.left=(p.phase==='work'?w:b)*60;if(p.running)pomoArm();pomoSync();}
 function clockTick(){const el=document.getElementById('home-clock');if(!el)return;const d=new Date();el.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 if(!window._pomoInt)window._pomoInt=setInterval(pomoTick,1000);
 if(!window._clockInt)window._clockInt=setInterval(clockTick,1000);
+if(!window._visBound){window._visBound=1;document.addEventListener('visibilitychange',function(){if(!document.hidden){pomoTick();clockTick();}});}
 if(!window._mailInt)window._mailInt=setInterval(function(){if(me&&window.gToken)fetchMailUnread();},120000);
 
 /* ---------- 홈 ---------- */
