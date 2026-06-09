@@ -261,9 +261,10 @@ async function viewHome(){
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
   const tl=groupTodoByField(todayItems,ts.compSet);
   const cal=await calendarBlock();
-  return `<div class="grid2"><div>${clockCard(a)}${pomoCard()}</div>
-    <div><h2 class="sec">내 할 일</h2><div class="card">${tl}</div>
-    <h2 class="sec">할 일 추가</h2>${todoAddForm()}</div></div>
+  return `<div class="grid2">
+    <div>${clockCard(a)}<h2 class="sec">내 할 일</h2><div class="card">${tl}</div></div>
+    <div>${pomoCard()}<h2 class="sec">할 일 등록</h2>${todoAddForm()}</div>
+    </div>
     <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
 }
 
