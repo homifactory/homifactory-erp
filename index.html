@@ -260,7 +260,7 @@ async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
   const {data:evs}=await sb.from('events').select('*').gte('event_date',todayStr()).order('event_date').limit(5);
-  const tl=todayItems.map(t=>todoRow2(t,ts.compSet)).join('')||'<div class="empty">오늘 할 일이 없습니다</div>';
+  const tl=groupTodoByField(todayItems,ts.compSet);
   const el=(evs||[]).map(e=>`<div class="row"><div><div class="ttl">${esc(e.title)}</div><div class="meta">${e.event_date}</div></div><span class="badge2" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${esc(e.event_type)}</span></div>`).join('')||'<div class="empty">예정된 일정이 없습니다</div>';
   const cal=await calendarBlock();
   return `<div class="grid2"><div>${clockCard(a)}${pomoCard()}</div>
