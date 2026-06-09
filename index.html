@@ -222,7 +222,7 @@ function clockCard(a){
   const label=!a?'출근하기':(a.clock_out?'다시 출근':'퇴근하기');
   const dis=false;
   const d=new Date();const days=['일','월','화','수','목','금','토'];
-  return `<div class="card clock"><div class="t">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div>
+  return `<div class="card clock" style="height:100%"><div class="t">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div>
     <div class="d">${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) · ${esc(me.name)} 님</div>
     <button class="${a&&!a.clock_out?'punch out':'punch'}" ${dis?'disabled style=opacity:.6':''} onclick="punch()">${label}<small>${dis?'오늘 근무 종료':'클릭하여 기록'}</small></button>
     <div class="statrow"><div class="stat"><div class="l">출근</div><div class="v">${inT}</div></div>${a&&a.reclock_in?`<div class="stat"><div class="l">다시출근</div><div class="v">${fmtT(a.reclock_in)}</div></div>`:''}<div class="stat"><div class="l">퇴근</div><div class="v">${outT}</div></div><div class="stat"><div class="l">진행</div><div class="v">${a?workDur(a):'—'}</div></div></div></div>`;
@@ -234,7 +234,7 @@ function pomoFmt(s){s=Math.max(0,s|0);const m=Math.floor(s/60),x=s%60;return Str
 function pomoBeep(){try{const ac=new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(0.0001,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.15,ac.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+0.5);o.start();o.stop(ac.currentTime+0.5);setTimeout(()=>ac.close(),700);}catch(e){}}
 function pomoCard(){const p=window.pomo;const C=2*Math.PI*52;const total=(p.phase==='work'?p.work:p.brk)*60;const off=C*(1-(total?p.left/total:0));const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const setv=p.work+'/'+p.brk;
   const opt=(w,b,l)=>`<option value="${w}/${b}" ${setv===w+'/'+b?'selected':''}>${l}</option>`;
-  return `<div class="card" id="pomo-card" style="margin-top:16px;text-align:center;border:1px solid ${col}33">
+  return `<div class="card" id="pomo-card" style="text-align:center;border:1px solid ${col}33;height:100%;display:flex;flex-direction:column;justify-content:center">
     <div style="font-weight:700;font-size:13px;color:var(--muted);margin-bottom:8px">뽀모도로 · <span id="pomo-phase" style="color:${col}">${p.phase==='work'?'집중':'휴식'}</span></div>
     <div style="position:relative;width:148px;height:148px;margin:0 auto">
       <svg width="148" height="148" viewBox="0 0 120 120" style="transform:rotate(-90deg)"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="9"></circle><circle id="pomo-ring" cx="60" cy="60" r="52" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"></circle></svg>
@@ -261,7 +261,7 @@ async function viewHome(){
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
   const tl=groupTodoByField(todayItems,ts.compSet);
   const cal=await calendarBlock();
-  return `<div class="grid2">
+  return `<div class="grid2" style="align-items:stretch">
     <div>${clockCard(a)}</div>
     <div>${pomoCard()}</div>
     </div>
