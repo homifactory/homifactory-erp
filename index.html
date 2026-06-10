@@ -283,7 +283,7 @@ async function viewHome(){
   const cal=await calendarBlock();
   return `<div class="grid2" style="align-items:stretch">
     <div>${clockCard(a)}</div>
-    <div>${pomoCard(todayItems)}</div>
+    <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>
     <div class="grid2" style="margin-top:18px">
     <div><h2 class="sec">내 할 일</h2><div class="card">${tl}</div></div>
