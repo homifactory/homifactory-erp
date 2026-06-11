@@ -168,7 +168,7 @@ const sb=window.supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GROUPS=['경영','마케팅','공연 및 퍼포먼스','매니지먼트','틱톡 라이브','컨텐츠'];
-const EVC=t=>({'공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','구글':'#4285F4','기타':'#6B7686'}[t]||'#6B7686');
+const EVC=t=>({'내부 회의':'#C98A12','외부 미팅':'#2E75B6','신규 크리에이터 미팅':'#7F77DD','그룹 라이브':'#D85A30','공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','구글':'#4285F4','기타':'#6B7686'}[t]||'#6B7686');
 let me=null, tab='home';
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
 let docType='야근·주말·외근', leaveType='연차';
@@ -539,7 +539,7 @@ async function calendarBlock(){
   const curPeople=(editing&&editing.part_people)?editing.part_people:[];
   const evDeptChecks=GROUPS.map(g=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 10px 3px 0;font-size:13px"><input type="checkbox" class="ev-pdept" value="${esc(g)}" ${curDepts.includes(g)?'checked':''}>${esc(g)}</label>`).join('');
   const evPeopleChecks=(emps||[]).map(e=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 10px 3px 0;font-size:13px"><input type="checkbox" class="ev-pperson" value="${e.id}" ${curPeople.includes(e.id)?'checked':''}>${esc(e.name)}</label>`).join('');
-  const typeOpts=['회의','공연','라이브','휴가','공휴일','기타'].map(t=>`<option ${editing&&editing.event_type===t?'selected':''}>${t}</option>`).join('');
+  const typeOpts=['내부 회의','외부 미팅','신규 크리에이터 미팅','그룹 라이브','휴가','공휴일','기타'].map(t=>`<option ${editing&&editing.event_type===t?'selected':''}>${t}</option>`).join('');
   const formTitle=editing?'일정 수정':'일정 추가';
   const formBtn=editing?`<button class="submit" onclick="saveEvEdit()">수정 저장</button><button class="xmini" style="margin-left:8px" onclick="evEdit=null;render()">취소</button>`:`<button class="submit" onclick="addEvent()">추가</button>`;
   return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><button class="navbtn" onclick="calMove(-1)">‹</button><div style="font-weight:700;font-size:17px;min-width:110px;text-align:center">${calY}년 ${calM+1}월</div><button class="navbtn" onclick="calMove(1)">›</button><div style="flex:1"></div><button id="gcal-btn" onclick="gcalSync()" title="이 달 일정을 구글 캘린더와 양방향 동기화" style="background:#fff;border:1px solid #4285F4;color:#4285F4;border-radius:9px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer">🔄 구글 캘린더 동기화</button></div>
