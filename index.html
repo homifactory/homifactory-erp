@@ -571,8 +571,9 @@ function todoTag(t){return t.recur_type==='daily'?'데일리':t.recur_type==='we
 function sortByPrio(a){const r={'높음':0,'보통':1,'낮음':2};return a.slice().sort((x,y)=>(r[x.priority]??1)-(r[y.priority]??1));}
 function prioPill(t){const p=t.priority||'보통';const m={'높음':'#D64545','보통':'#2E75B6','낮음':'#8A93A2'};return `<span class="tdtag" style="color:#fff;background:${m[p]||'#8A93A2'}">${p}</span>`;}
 function fieldPill(t){return t.field?`<span class="tdtag" style="color:var(--navy);background:var(--blue-soft)">${esc(t.field)}</span>`:'';}
+function dueTag(t,ck){if(!t.due_date)return '';const today=todayStr();const overdue=t.due_date<today&&!ck;const col=overdue?'var(--red)':(t.due_date===today?'var(--amber)':'var(--muted)');const bg=overdue?'var(--red-soft)':(t.due_date===today?'var(--amber-soft)':'var(--bg)');const md=t.due_date.slice(5).replace('-','/');return `<span class="tdtag" style="color:${col};background:${bg}">~${md}</span>`;}
 function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
-  return `<div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><span style="flex:1;cursor:pointer;font-size:14px" onclick="openTodoModal('${t.id}')">${esc(t.content)}${t.note?' 📝':''}</span>${prioPill(t)}${fieldPill(t)}<span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`;}
+  return `<div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><span style="flex:1;cursor:pointer;font-size:14px" onclick="openTodoModal('${t.id}')">${esc(t.content)}${t.note?' 📝':''}</span>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}<span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`;}
 async function toggleTodo2(id,rt,checked){
   if(rt==='project'){await sb.from('todos').update({done:!checked}).eq('id',id);}
   else if(checked){await sb.from('todo_completions').delete().eq('todo_id',id).eq('employee_id',me.id).eq('done_date',todayStr());}
@@ -586,6 +587,7 @@ function todoAddForm(){
       <div class="field"><label>내용</label><input id="td-in" placeholder="할 일을 입력하세요"></div>
       <div class="field two"><div><label>분류</label><select id="td-type" onchange="var v=this.value;document.getElementById('td-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('td-mdwrap').style.display=v==='monthly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option><option value="monthly">매월(날짜 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div><div id="td-mdwrap" style="display:none"><label>날짜</label><select id="td-md">${mdOpts}</select></div></div>
       <div class="field two"><div><label>우선순위</label><select id="td-prio"><option>보통</option><option>높음</option><option>낮음</option></select></div><div><label>분야</label><select id="td-field"><option value="">미지정</option><option>틱톡</option><option>그룹라이브</option><option>마케팅</option><option>매니지먼트</option><option>경영/전략</option></select></div></div>
+      <div class="field"><label>마감일 (선택)</label><input type="date" id="td-due"></div>
       <div class="field"><label>비고</label><textarea id="td-note" rows="3" placeholder="자세한 내용을 입력하세요 (선택)"></textarea></div>
       <button class="submit" onclick="addTodo()">추가</button>
     </div>`;
@@ -637,8 +639,9 @@ async function addTodo(){
   const prio=$('td-prio')?$('td-prio').value:'보통';
   const field=$('td-field')?$('td-field').value:'';
   const note=$('td-note')?$('td-note').value.trim():'';
+  const due=$('td-due')?$('td-due').value:'';
   el.value='';
-  await sb.from('todos').insert({employee_id:me.id,content:v,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null});
+  await sb.from('todos').insert({employee_id:me.id,content:v,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null});
   render();
 }
 async function delTodo(id){await sb.from('todos').delete().eq('id',id);render();}
@@ -659,6 +662,7 @@ async function openTodoModal(id){
     <div class="field two"><div><label>분류</label><select id="tm-type" ${can?'':'disabled'} onchange="var v=this.value;document.getElementById('tm-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('tm-mdwrap').style.display=v==='monthly'?'':'none'">${tsel('project','프로젝트(한 번)')}${tsel('daily','데일리(매일)')}${tsel('weekly','매주(요일 지정)')}${tsel('monthly','매월(날짜 지정)')}</select></div><div id="tm-wdwrap" style="display:${t.recur_type==='weekly'?'':'none'}"><label>요일</label><select id="tm-wd" ${can?'':'disabled'}>${wdOpts}</select></div><div id="tm-mdwrap" style="display:${t.recur_type==='monthly'?'':'none'}"><label>날짜</label><select id="tm-md" ${can?'':'disabled'}>${mdOpts}</select></div></div>
     <div class="field two"><div><label>우선순위</label><select id="tm-prio" ${can?'':'disabled'}>${psel('보통')}${psel('높음')}${psel('낮음')}</select></div><div><label>분야</label><select id="tm-field" ${can?'':'disabled'}><option value="" ${!t.field?'selected':''}>미지정</option>${fsel}</select></div></div>
     <div class="field"><label>비고</label><textarea id="tm-note" rows="4" ${can?'':'disabled'} placeholder="자세한 내용">${esc(t.note||'')}</textarea></div>
+    <div class="field"><label>마감일</label><input type="date" id="tm-due" value="${t.due_date||''}" ${can?'':'disabled'}></div>
     <div style="display:flex;justify-content:${can?'space-between':'flex-end'};align-items:center;margin-top:14px">
       ${can?`<button class="rj" onclick="delTodoFromModal('${t.id}')">삭제</button>`:''}
       <div style="display:flex;gap:8px"><button onclick="closeTodoModal()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">${can?'취소':'닫기'}</button>${can?`<button class="ap" onclick="saveTodoEdit('${t.id}')">저장</button>`:''}</div>
@@ -670,8 +674,8 @@ async function saveTodoEdit(id){
   const content=$('tm-in').value.trim();if(!content)return;
   const rt=$('tm-type').value;
   let wd=null;if(rt==='weekly')wd=parseInt($('tm-wd').value);else if(rt==='monthly')wd=parseInt($('tm-md').value);
-  const prio=$('tm-prio').value;const field=$('tm-field').value;const note=$('tm-note').value.trim();
-  await sb.from('todos').update({content,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null}).eq('id',id);
+  const prio=$('tm-prio').value;const field=$('tm-field').value;const note=$('tm-note').value.trim();const due=$('tm-due')?$('tm-due').value:'';
+  await sb.from('todos').update({content,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null}).eq('id',id);
   closeTodoModal();toast('수정되었습니다');render();
 }
 async function delTodoFromModal(id){await sb.from('todos').delete().eq('id',id);closeTodoModal();toast('삭제되었습니다');render();}
