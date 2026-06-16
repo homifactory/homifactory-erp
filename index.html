@@ -512,7 +512,7 @@ async function calendarBlock(){
   const mfrom=`${calY}-${String(calM+1).padStart(2,'0')}-01`;
   const lastDay=new Date(calY,calM+1,0).getDate();
   const mtoStr=`${calY}-${String(calM+1).padStart(2,'0')}-${lastDay}`;
-  const {data:emps}=await sb.from('employees').select('id,name').order('name');
+  const {data:emps}=await sb.from('emp_dir').select('id,name').order('name');
   const nameById={};(emps||[]).forEach(e=>nameById[e.id]=e.name);
   const {data:evs}=await sb.from('events').select('*').gte('event_date',mfrom).lte('event_date',mtoStr);
   let gevs=[];try{const r=await sb.from('gcal_events').select('*').gte('event_date',mfrom).lte('event_date',mtoStr);gevs=r.data||[];}catch(e){}
@@ -817,7 +817,7 @@ function arStars(n){n=n||0;return '★★★'.slice(0,n)+'☆☆☆'.slice(0,3-n
 function arcVis(){const v=$('ar-vis').value;$('ar-deptbox').style.display=v==='부서'?'':'none';$('ar-peoplebox').style.display=v==='지정'?'':'none';}
 async function viewArchive(){
   const {data:arc}=await sb.from('archives').select('*').order('created_at',{ascending:false});
-  const {data:emps}=await sb.from('employees').select('id,name').order('name');
+  const {data:emps}=await sb.from('emp_dir').select('id,name').order('name');
   const cats=['TIKTOK','그룹라이브','BENEFIT','마케팅','공연','매니지먼트','업무','기타'];
   const rowHtml=(a)=>{const vt=(a.visibility&&a.visibility!=='전체')?` <span class="tdtag">${a.visibility==='부서'?'부서 한정':'지정 공개'}</span>`:'';return `<div class="row"><div style="flex:1"><div class="ttl"><span style="color:#E8A300">${arStars(a.impact)}</span> ${a.url?`<a href="${esc(a.url)}" target="_blank" style="color:var(--blue)">${esc(a.title)}</a>`:esc(a.title)}${a.file_path?` <button class="xmini" style="color:var(--blue)" onclick="openArchiveFile('${a.file_path}')">📎 ${esc(a.file_name||'파일')}</button>`:''}${vt}</div>${a.note?`<div class="meta">${esc(a.note)}</div>`:''}</div><div style="display:flex;align-items:center;gap:8px"><span class="meta">${(a.created_at||'').slice(0,10)}</span><button class="xmini" style="color:var(--blue)" onclick="startArcEdit('${a.id}')">수정</button><button class="xmini" onclick="delArchive('${a.id}')">×</button></div></div>`;};
   const byCat={};(arc||[]).forEach(a=>{const c=a.category||'기타';(byCat[c]=byCat[c]||[]).push(a);});
