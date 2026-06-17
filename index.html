@@ -174,7 +174,7 @@ let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date()
 let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
-let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;
+let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;
 let docModal=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -818,9 +818,15 @@ function arcVis(){const v=$('ar-vis').value;$('ar-deptbox').style.display=v==='�
 async function viewContacts(){
   const {data:emps}=await sb.from('emp_dir').select('*').order('name');
   const {data:cons}=await sb.from('contacts').select('*').order('company',{ascending:true}).order('name',{ascending:true});
-  const empRows=(emps||[]).map(e=>`<div class="row"><div style="flex:1"><div class="ttl">${esc(e.name)}${(e.dept||e.role)?` <span class="meta">${esc(e.dept||'')}${e.role?(e.dept?' · ':'')+esc(e.role):''}</span>`:''}</div><div class="meta">${e.phone?'📞 '+esc(e.phone):''}${e.email?(e.phone?' · ':'')+'✉️ '+esc(e.email):''}${(!e.phone&&!e.email)?'연락처 미등록':''}</div></div></div>`).join('')||'<div class="empty">직원이 없습니다</div>';
+  const empRows=(emps||[]).map(e=>`<div class="row"><div style="flex:1"><div class="ttl">${esc(e.name)}${(e.dept||e.role)?` <span class="meta">${esc(e.dept||'')}${e.role?(e.dept?' · ':'')+esc(e.role):''}</span>`:''}</div><div class="meta">${e.phone?'📞 '+esc(e.phone):''}${e.email?(e.phone?' · ':'')+'✉️ '+esc(e.email):''}${(!e.phone&&!e.email)?'연락처 미등록':''}</div></div>${(me.is_admin||e.id===me.id)?`<div><button class="xmini" style="color:var(--blue)" onclick="startEmpEdit('${e.id}')">수정</button></div>`:''}</div>`).join('')||'<div class="empty">직원이 없습니다</div>';
   const conRows=(cons||[]).map(c=>`<div class="row"><div style="flex:1" onclick="startContactEdit('${c.id}')" style="cursor:pointer"><div class="ttl">${c.company?esc(c.company)+' · ':''}${esc(c.name||'')}${c.title?` <span class="meta">${esc(c.title)}</span>`:''}</div><div class="meta">${c.phone?'📞 '+esc(c.phone):''}${c.email?(c.phone?' · ':'')+'✉️ '+esc(c.email):''}${c.memo?(c.phone||c.email?' · ':'')+esc(c.memo):''}</div></div><div style="display:flex;align-items:center;gap:8px"><button class="xmini" style="color:var(--blue)" onclick="startContactEdit('${c.id}')">수정</button><button class="xmini" onclick="delContact('${c.id}')">×</button></div></div>`).join('')||'<div class="empty">등록된 거래처가 없습니다</div>';
   const ed=contactEdit?(cons||[]).find(c=>c.id===contactEdit):null;
+  const ee=empEdit?(emps||[]).find(e=>e.id===empEdit):null;
+  const empModalHtml=ee?`<div class="modalbg" onclick="if(event.target===this){empEdit=null;render()}"><div class="modalbox">
+    <div style="font-weight:700;font-size:16px;margin-bottom:10px">${esc(ee.name)} 연락처 수정</div>
+    <div class="field two"><div><label>전화</label><input id="ee-phone" value="${esc(ee.phone||'')}" placeholder="010-0000-0000"></div><div><label>이메일</label><input id="ee-email" value="${esc(ee.email||'')}" placeholder="email@..."></div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button onclick="empEdit=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">취소</button><button class="ap" onclick="saveEmpContact('${ee.id}')">저장</button></div>
+  </div></div>`:'';
   const modal=contactModal?`<div class="modalbg" onclick="if(event.target===this){contactModal=false;contactEdit=null;render()}"><div class="modalbox">
     <div style="font-weight:700;font-size:16px;margin-bottom:10px">${ed?'거래처 연락처 수정':'거래처 연락처 추가'}</div>
     <div class="field two"><div><label>거래처/회사</label><input id="ct-company" value="${ed?esc(ed.company||''):''}" placeholder="회사·거래처명"></div><div><label>담당자 이름</label><input id="ct-name" value="${ed?esc(ed.name||''):''}" placeholder="이름"></div></div>
@@ -832,7 +838,14 @@ async function viewContacts(){
   return `<div class="grid2">
     <div><h2 class="sec">임직원 연락처 (${(emps||[]).length})</h2><div class="card">${empRows}</div></div>
     <div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><h2 class="sec" style="margin:0">거래처 연락처 (${(cons||[]).length})</h2><button onclick="contactEdit=null;contactModal=true;render()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">+ 추가</button></div><div class="card">${conRows}</div></div>
-  </div>${modal}`;
+  </div>${modal}${empModalHtml}`;
+}
+function startEmpEdit(id){empEdit=id;render();}
+async function saveEmpContact(id){
+  if(!(me.is_admin||id===me.id)){toast('권한이 없습니다');return;}
+  const {error}=await sb.from('employees').update({phone:$('ee-phone').value||null,email:$('ee-email').value||null}).eq('id',id);
+  if(error){toast('오류: '+error.message);return;}
+  empEdit=null;toast('연락처가 수정되었습니다');render();
 }
 function startContactEdit(id){contactEdit=id;contactModal=true;render();}
 async function addContact(){
