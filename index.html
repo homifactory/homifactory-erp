@@ -215,7 +215,7 @@ async function refreshBadges(){
   pendCounts={leave:l.count||0,doc:d.count||0};
 }
 function navItems(){
-  const b=[['home','홈'],['todo','할 일'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
+  const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
 }
@@ -225,7 +225,7 @@ function renderNav(){
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',todo:'할 일',cal:'캘린더',meet:'회의록',archive:'자료실',contacts:'주소록',leave:'휴가',approval:'전자결재',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',contacts:'주소록',leave:'휴가',approval:'전자결재',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function toggleSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(!sd)return;var open=sd.classList.toggle('open');if(o)o.classList.toggle('show',open);}
 function closeSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(sd)sd.classList.remove('open');if(o)o.classList.remove('show');}
 function go(t){tab=t;closeSide();render();$('view').scrollTop=0;}
@@ -314,7 +314,7 @@ async function viewHome(){
     </div>
     <div class="grid2" style="margin-top:18px">
     <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}</div></div>
-    <div><h2 class="sec">할 일 등록</h2>${todoAddForm(homeEmps)}</div>
+    <div><h2 class="sec">TO DO LIST 등록</h2>${todoAddForm(homeEmps)}</div>
     </div>
     <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
 }
@@ -588,7 +588,7 @@ function todoAddForm(emps){
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===todayWeekday()?'selected':''}>${d}요일</option>`).join('');
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===new Date().getDate()?'selected':''}>${d}일</option>`).join('');
   return `<div class="card" style="max-width:560px">
-      <div class="field"><label>내용</label><input id="td-in" placeholder="할 일을 입력하세요"></div>
+      <div class="field"><label>내용</label><input id="td-in" placeholder="TO DO LIST 입력하세요"></div>
       <div class="field two"><div><label>분류</label><select id="td-type" onchange="var v=this.value;document.getElementById('td-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('td-mdwrap').style.display=v==='monthly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option><option value="monthly">매월(날짜 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div><div id="td-mdwrap" style="display:none"><label>날짜</label><select id="td-md">${mdOpts}</select></div></div>
       <div class="field two"><div><label>우선순위</label><select id="td-prio"><option>보통</option><option>높음</option><option>낮음</option></select></div><div><label>분야</label><select id="td-field"><option value="">미지정</option><option>틱톡</option><option>그룹라이브</option><option>마케팅</option><option>매니지먼트</option><option>경영/전략</option></select></div></div>
       <div class="field"><label>담당자 (배분)</label><select id="td-assignee">${(emps||[]).map(e=>`<option value="${e.id}" ${e.id===me.id?'selected':''}>${esc(e.name)}${e.id===me.id?' (나)':''}</option>`).join('')}</select></div>
@@ -625,12 +625,25 @@ function setModalSubNote(i,v){modalSubs[i].note=v||'';persistModalSubs();}
 function removeModalSub(i){modalSubs.splice(i,1);refreshModalSubs();persistModalSubs();}
 async function toggleRowSub(id,i){const {data:t}=await sb.from('todos').select('subtasks').eq('id',id).maybeSingle();if(!t)return;const subs=Array.isArray(t.subtasks)?t.subtasks:[];if(!subs[i])return;subs[i].d=!subs[i].d;await sb.from('todos').update({subtasks:subs}).eq('id',id);render();}
 function groupTodoByField(items,compSet){
-  if(!items.length)return '<div class="empty">오늘 할 일이 없습니다</div>';
+  if(!items.length)return '<div class="empty">오늘 TO DO LIST가 없습니다</div>';
   const order=['경영/전략','틱톡','마케팅','매니지먼트','그룹라이브','미지정'];
   const fc={'틱톡':'#111','그룹라이브':'#7F77DD','마케팅':'#D85A30','매니지먼트':'#16A06B','경영/전략':'#2F6BE4','미지정':'#8A93A2'};
   const g={};items.forEach(t=>{const f=t.field||'미지정';(g[f]=g[f]||[]).push(t);});
   const keys=[...order.filter(k=>g[k]),...Object.keys(g).filter(k=>!order.includes(k))];
   return keys.map(k=>`<div class="fldgrp"><div class="fldhd" style="--fc:${fc[k]||'#8A93A2'}"><span style="width:4px;height:13px;border-radius:3px;background:${fc[k]||'#8A93A2'};display:inline-block"></span>${esc(k)}<span class="cnt">${g[k].length}</span></div>${g[k].map(t=>todoRow2(t,compSet)).join('')}</div>`).join('');
+}
+function recurBlock(defs){
+  const groups=[['daily','매일'],['weekly','매주'],['monthly','매월']];
+  const html=groups.map(([rt,lbl])=>{
+    const items=defs.filter(t=>t.recur_type===rt);
+    if(!items.length)return '';
+    const rows=items.map(t=>{
+      const cad=rt==='daily'?'매일':rt==='weekly'?('매주 '+(WD[t.weekday]||'?')+'요일'):('매월 '+(t.weekday||'?')+'일');
+      return `<div class="row" style="cursor:pointer" onclick="openTodoModal('${t.id}')"><div style="flex:1"><div class="ttl">${esc(t.content)}</div><div class="meta">${cad}${t.field?' · '+esc(t.field):''}</div></div>${fieldPill(t)}<button class="xmini" onclick="event.stopPropagation();delTodo('${t.id}')">×</button></div>`;
+    }).join('');
+    return `<div class="fldgrp"><div class="fldhd"><span style="width:4px;height:13px;border-radius:3px;background:var(--blue);display:inline-block"></span>${lbl}<span class="cnt">${items.length}</span></div>${rows}</div>`;
+  }).join('');
+  return html||'<div class="empty">설정된 정기 업무가 없습니다</div>';
 }
 async function viewTodo(){
   const ts=await fetchTodoState();
@@ -655,17 +668,17 @@ async function viewTodo(){
     const cards=(emps||[]).filter(e=>byEmp[e.id]&&byEmp[e.id].length).map(e=>{
       const its=sortByPrio((byEmp[e.id]||[]).filter(applicableToday));
       const doneN=its.filter(t=>todoChecked(t,cset)).length;
-      const rows=its.length?its.map(t=>{const ck=todoChecked(t,cset);return `<div class="tditem ${ck?'done':''}"><span style="width:18px;text-align:center;color:${ck?'var(--green)':'var(--muted)'}">${ck?'✓':'▢'}</span><span style="flex:1">${esc(t.content)}</span>${prioPill(t)}${fieldPill(t)}<span class="tdtag">${todoTag(t)}</span></div>`;}).join(''):'<div class="empty" style="padding:6px 0">오늘 할 일 없음</div>';
+      const rows=its.length?its.map(t=>{const ck=todoChecked(t,cset);return `<div class="tditem ${ck?'done':''}"><span style="width:18px;text-align:center;color:${ck?'var(--green)':'var(--muted)'}">${ck?'✓':'▢'}</span><span style="flex:1">${esc(t.content)}</span>${prioPill(t)}${fieldPill(t)}<span class="tdtag">${todoTag(t)}</span></div>`;}).join(''):'<div class="empty" style="padding:6px 0">오늘 TO DO LIST 없음</div>';
       return `<div class="deptcard"><div class="dh">${esc(e.name)} · ${esc(e.dept||'-')}<span>${doneN}/${its.length}</span></div>${rows}</div>`;
-    }).join('')||'<div class="empty">등록된 할 일이 없습니다</div>';
-    adminBlock=`<h2 class="sec">전체 직원 할 일 현황 · 오늘</h2><div class="card">${cards}</div>`;
+    }).join('')||'<div class="empty">등록된 TO DO LIST가 없습니다</div>';
+    adminBlock=`<h2 class="sec">전체 직원 TO DO LIST 현황 · 오늘</h2><div class="card">${cards}</div>`;
   }
   const upcoming=ts.defs.filter(t=>t.start_date&&t.start_date>todayStr()&&!(t.recur_type==='project'&&t.done));
   const upRows=upcoming.length?upcoming.map(t=>`<div class="row" style="cursor:pointer" onclick="openTodoModal('${t.id}')"><div><div class="ttl">${esc(t.content)}</div><div class="meta">${t.start_date}부터 시작 · ${todoTag(t)}</div></div><span class="tdtag">예정</span></div>`).join(''):'';
   return `<div class="grid2"><div>
-    <h2 class="sec">오늘 할 일</h2><div class="card" style="max-width:560px">${list}</div>
-    <h2 class="sec">할 일 추가</h2>${todoAddForm(formEmps)}</div>
-    <div>${upRows?`<h2 class="sec">예정 (시작 전)</h2><div class="card">${upRows}</div>`:''}<h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>${adminBlock}`;
+    <h2 class="sec">오늘 TO DO LIST</h2><div class="card" style="max-width:560px">${list}</div>
+    <h2 class="sec">TO DO LIST 추가</h2>${todoAddForm(formEmps)}</div>
+    <div><h2 class="sec">정기 업무 (매일·매주·매월)</h2><div class="card">${recurBlock(ts.defs)}</div>${upRows?`<h2 class="sec">예정 (시작 전)</h2><div class="card">${upRows}</div>`:''}<h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>${adminBlock}`;
 }
 async function addTodo(){
   const el=$('td-in');const v=el.value.trim();if(!v)return;
@@ -698,7 +711,7 @@ async function openTodoModal(id){
   modalSubs=Array.isArray(t.subtasks)?t.subtasks.map(x=>({t:x.t,d:!!x.d,due:x.due||'',note:x.note||'',asg:x.asg||''})):[];modalSubsCan=can;modalTodoId=t.id;
   const host=document.createElement('div');host.id='todoModalHost';
   host.innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeTodoModal()"><div class="modalbox">
-    <div style="font-weight:700;font-size:16px;margin-bottom:12px">할 일 상세${can?'':' (보기 전용)'}</div>
+    <div style="font-weight:700;font-size:16px;margin-bottom:12px">TO DO LIST 상세${can?'':' (보기 전용)'}</div>
     <div class="field"><label>내용</label><input id="tm-in" value="${esc(t.content)}" ${can?'':'disabled'}></div>
     <div class="field two"><div><label>분류</label><select id="tm-type" ${can?'':'disabled'} onchange="var v=this.value;document.getElementById('tm-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('tm-mdwrap').style.display=v==='monthly'?'':'none'">${tsel('project','프로젝트(한 번)')}${tsel('daily','데일리(매일)')}${tsel('weekly','매주(요일 지정)')}${tsel('monthly','매월(날짜 지정)')}</select></div><div id="tm-wdwrap" style="display:${t.recur_type==='weekly'?'':'none'}"><label>요일</label><select id="tm-wd" ${can?'':'disabled'}>${wdOpts}</select></div><div id="tm-mdwrap" style="display:${t.recur_type==='monthly'?'':'none'}"><label>날짜</label><select id="tm-md" ${can?'':'disabled'}>${mdOpts}</select></div></div>
     <div class="field two"><div><label>우선순위</label><select id="tm-prio" ${can?'':'disabled'}>${psel('보통')}${psel('높음')}${psel('낮음')}</select></div><div><label>분야</label><select id="tm-field" ${can?'':'disabled'}><option value="" ${!t.field?'selected':''}>미지정</option>${fsel}</select></div></div>
@@ -782,7 +795,7 @@ async function viewMeet(){
     <div class="field"><label>핵심 내용</label><textarea id="me-key" rows="3">${esc(m.key_points||'')}</textarea></div>
     <div class="field"><label>내용 (전체)</label><textarea id="me-content" rows="5">${esc(m.content||'')}</textarea></div>
     <div class="field"><label>결정 사항</label><textarea id="me-dec" rows="3">${esc(m.decisions||'')}</textarea></div>
-    <div class="field"><label>할 일 · 담당자</label><textarea id="me-act" rows="3">${esc(m.action_items||'')}</textarea></div>
+    <div class="field"><label>TO DO LIST · 담당자</label><textarea id="me-act" rows="3">${esc(m.action_items||'')}</textarea></div>
     <div class="field"><label>비고</label><textarea id="me-notes" rows="2">${esc(m.notes||'')}</textarea></div>
     ${m.audio_path?`<div style="margin-top:8px"><button class="xmini" style="color:var(--blue)" onclick="openMeetAudio('${m.audio_path}')">🎧 녹음 듣기</button></div>`:''}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><button class="rj" onclick="delMeet('${m.id}')">삭제</button><div style="display:flex;gap:8px"><button onclick="meetSel=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button><button class="ap" onclick="saveMeet('${m.id}')">저장</button></div></div>
@@ -797,7 +810,7 @@ async function viewMeet(){
       <div class="field"><label>핵심 내용</label><textarea id="mt-key" rows="3" placeholder="핵심 요약"></textarea></div>
       <div class="field"><label>내용 (전체)</label><textarea id="mt-content" rows="6" placeholder="회의 전반 내용 (녹음 시 자동 입력)"></textarea></div>
       <div class="field"><label>결정 사항</label><textarea id="mt-dec" rows="3"></textarea></div>
-      <div class="field"><label>할 일 · 담당자</label><textarea id="mt-act" rows="4" placeholder="예: 컨택 리스트 정리 — 홍주·경주"></textarea></div>
+      <div class="field"><label>TO DO LIST · 담당자</label><textarea id="mt-act" rows="4" placeholder="예: 컨택 리스트 정리 — 홍주·경주"></textarea></div>
       <div class="field"><label>비고</label><textarea id="mt-notes" rows="2"></textarea></div>
       <button class="submit" onclick="submitMeet()">회의록 저장</button>
     </div></div>
