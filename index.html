@@ -174,7 +174,7 @@ let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date()
 let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
-let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;
+let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};
 let docModal=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -305,7 +305,7 @@ async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
   const tl=groupTodoByField(todayItems,ts.compSet);
-  const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];
+  const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
   const cal=await calendarBlock();
   return `<div class="grid2" style="align-items:stretch">
     <div>${clockCard(a)}</div>
@@ -575,7 +575,7 @@ function prioPill(t){const p=t.priority||'보통';const m={'높음':'#D64545','�
 function fieldPill(t){return t.field?`<span class="tdtag" style="color:var(--navy);background:var(--blue-soft)">${esc(t.field)}</span>`:'';}
 function dueTag(t,ck){if(!t.due_date)return '';const today=todayStr();const overdue=t.due_date<today&&!ck;const col=overdue?'var(--red)':(t.due_date===today?'var(--amber)':'var(--muted)');const bg=overdue?'var(--red-soft)':(t.due_date===today?'var(--amber-soft)':'var(--bg)');const md=t.due_date.slice(5).replace('-','/');return `<span class="tdtag" style="color:${col};background:${bg}">~${md}</span>`;}
 function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
-  const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}</label>`).join('')+`</div>`:'';
+  const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}${s.asg&&empMap[s.asg]?`<span style="font-size:10px;color:var(--navy);background:var(--blue-soft);border-radius:5px;padding:1px 5px;margin-left:4px">${esc(empMap[s.asg])}</span>`:''}</label>`).join('')+`</div>`:'';
   return `<div class="tdblock"><div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:14px">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
 async function toggleTodo2(id,rt,checked){
   if(rt==='project'){await sb.from('todos').update({done:!checked}).eq('id',id);}
@@ -598,23 +598,27 @@ function todoAddForm(emps){
       <button class="submit" onclick="addTodo()">추가</button>
     </div>`;
 }
+function setEmpMap(es){(es||[]).forEach(e=>{if(e&&e.id)empMap[e.id]=e.name;});}
+function asgOpts(sel){return '<option value="">미배정</option>'+Object.keys(empMap).map(id=>`<option value="${id}" ${sel===id?'selected':''}>${esc(empMap[id])}</option>`).join('');}
+function setDraftSubAsg(i,v){draftSubs[i].asg=v||'';}
+function setModalSubAsg(i,v){modalSubs[i].asg=v||'';persistModalSubs();}
 function draftSubListHtml(){
   if(!draftSubs.length)return '';
-  return '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px">'+draftSubs.map((s,i)=>`<div style="background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:13px">${esc(s.t)}</span><input type="date" value="${s.due||''}" onchange="setDraftSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit"><button type="button" class="xmini" onclick="removeDraftSub(${i})">\u00d7</button></div><input type="text" placeholder="비고 (선택)" value="${esc(s.note||'')}" onchange="setDraftSubNote(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit"></div>`).join('')+'</div>';
+  return '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px">'+draftSubs.map((s,i)=>`<div style="background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:13px">${esc(s.t)}</span><input type="date" value="${s.due||''}" onchange="setDraftSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit"><button type="button" class="xmini" onclick="removeDraftSub(${i})">\u00d7</button></div><div style="display:flex;gap:6px;align-items:center"><input type="text" placeholder="비고 (선택)" value="${esc(s.note||'')}" onchange="setDraftSubNote(${i},this.value)" style="flex:1;border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit"><select onchange="setDraftSubAsg(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 6px;font-size:12px;font-family:inherit">${asgOpts(s.asg||'')}</select></div></div>`).join('')+'</div>';
 }
-function addDraftSub(){const el=document.getElementById('td-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('td-sub-due');const du=de?de.value:'';draftSubs.push({t:v,d:false,due:du||'',note:''});el.value='';if(de)de.value='';const l=document.getElementById('td-sublist');if(l)l.innerHTML=draftSubListHtml();el.focus();}
+function addDraftSub(){const el=document.getElementById('td-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('td-sub-due');const du=de?de.value:'';draftSubs.push({t:v,d:false,due:du||'',note:'',asg:''});el.value='';if(de)de.value='';const l=document.getElementById('td-sublist');if(l)l.innerHTML=draftSubListHtml();el.focus();}
 function setDraftSubDue(i,v){draftSubs[i].due=v||'';}
 function setDraftSubNote(i,v){draftSubs[i].note=v||'';}
 function removeDraftSub(i){draftSubs.splice(i,1);const l=document.getElementById('td-sublist');if(l)l.innerHTML=draftSubListHtml();}
 function modalSubListHtml(can){
   if(!modalSubs.length)return '<div class="meta" style="color:#9AA3B2">하위 업무가 없습니다</div>';
   const done=modalSubs.filter(s=>s.d).length;
-  return `<div class="meta" style="margin-bottom:4px">${done}/${modalSubs.length} 완료</div>`+'<div style="display:flex;flex-direction:column;gap:6px">'+modalSubs.map((s,i)=>`<div style="background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${s.d?'checked':''} ${can?'':'disabled'} onclick="toggleModalSub(${i})" style="width:18px;height:18px;flex:0 0 auto;accent-color:var(--blue)"><span style="flex:1;font-size:13px;${s.d?'text-decoration:line-through;color:#9AA3B2':''}">${esc(s.t)}</span>${can?`<input type="date" value="${s.due||''}" onchange="setModalSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit">`:(s.due?`<span style="font-size:11px;color:#D85A30">${s.due}</span>`:'')}${can?`<button type="button" class="xmini" onclick="removeModalSub(${i})">\u00d7</button>`:''}</div>${can?`<input type="text" placeholder="비고 (선택)" value="${esc(s.note||'')}" onchange="setModalSubNote(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit">`:(s.note?`<div style="font-size:11px;color:#6B7280">${esc(s.note)}</div>`:'')}</div>`).join('')+'</div>';
+  return `<div class="meta" style="margin-bottom:4px">${done}/${modalSubs.length} 완료</div>`+'<div style="display:flex;flex-direction:column;gap:6px">'+modalSubs.map((s,i)=>`<div style="background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${s.d?'checked':''} ${can?'':'disabled'} onclick="toggleModalSub(${i})" style="width:18px;height:18px;flex:0 0 auto;accent-color:var(--blue)"><span style="flex:1;font-size:13px;${s.d?'text-decoration:line-through;color:#9AA3B2':''}">${esc(s.t)}</span>${can?`<input type="date" value="${s.due||''}" onchange="setModalSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit">`:(s.due?`<span style="font-size:11px;color:#D85A30">${s.due}</span>`:'')}${can?`<button type="button" class="xmini" onclick="removeModalSub(${i})">\u00d7</button>`:''}</div><div style="display:flex;gap:6px;align-items:center">${can?`<input type="text" placeholder="비고 (선택)" value="${esc(s.note||'')}" onchange="setModalSubNote(${i},this.value)" style="flex:1;border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit">`:`<div style="flex:1;font-size:11px;color:#6B7280">${esc(s.note||'')}</div>`}<select ${can?'':'disabled'} onchange="setModalSubAsg(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 6px;font-size:12px;font-family:inherit">${asgOpts(s.asg||'')}</select></div></div>`).join('')+'</div>';
 }
 function refreshModalSubs(){const l=document.getElementById('tm-sublist');if(l)l.innerHTML=modalSubListHtml(modalSubsCan);}
 async function persistModalSubs(){if(modalSubsCan&&modalTodoId){await sb.from('todos').update({subtasks:modalSubs}).eq('id',modalTodoId);}}
 function toggleModalSub(i){modalSubs[i].d=!modalSubs[i].d;refreshModalSubs();persistModalSubs();}
-function addModalSub(){const el=document.getElementById('tm-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('tm-sub-due');const du=de?de.value:'';modalSubs.push({t:v,d:false,due:du||'',note:''});el.value='';if(de)de.value='';refreshModalSubs();el.focus();persistModalSubs();}
+function addModalSub(){const el=document.getElementById('tm-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('tm-sub-due');const du=de?de.value:'';modalSubs.push({t:v,d:false,due:du||'',note:'',asg:''});el.value='';if(de)de.value='';refreshModalSubs();el.focus();persistModalSubs();}
 function setModalSubDue(i,v){modalSubs[i].due=v||'';persistModalSubs();}
 function setModalSubNote(i,v){modalSubs[i].note=v||'';persistModalSubs();}
 function removeModalSub(i){modalSubs.splice(i,1);refreshModalSubs();persistModalSubs();}
@@ -629,7 +633,7 @@ function groupTodoByField(items,compSet){
 }
 async function viewTodo(){
   const ts=await fetchTodoState();
-  const formEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];
+  const formEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(formEmps);
   const items=sortByPrio(ts.defs.filter(applicableToday));
   const list=groupTodoByField(items,ts.compSet);
   const byId={};ts.defs.forEach(t=>byId[t.id]=t);
@@ -682,7 +686,7 @@ async function openTodoModal(id){
   const {data:t}=await sb.from('todos').select('*').eq('id',id).maybeSingle();
   if(!t)return;
   const can=me.is_admin||t.employee_id===me.id;
-  const emps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];
+  const emps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(emps);
   const asel=emps.map(e=>`<option value="${e.id}" ${e.id===t.employee_id?'selected':''}>${esc(e.name)}${e.id===me.id?' (나)':''}</option>`).join('');
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===t.weekday?'selected':''}>${d}요일</option>`).join('');
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===t.weekday?'selected':''}>${d}일</option>`).join('');
@@ -690,7 +694,7 @@ async function openTodoModal(id){
   const psel=p=>`<option ${(t.priority||'보통')===p?'selected':''}>${p}</option>`;
   const FIELDS=['틱톡','그룹라이브','마케팅','매니지먼트','경영/전략'];
   const fsel=FIELDS.map(f=>`<option ${t.field===f?'selected':''}>${f}</option>`).join('');
-  modalSubs=Array.isArray(t.subtasks)?t.subtasks.map(x=>({t:x.t,d:!!x.d,due:x.due||'',note:x.note||''})):[];modalSubsCan=can;modalTodoId=t.id;
+  modalSubs=Array.isArray(t.subtasks)?t.subtasks.map(x=>({t:x.t,d:!!x.d,due:x.due||'',note:x.note||'',asg:x.asg||''})):[];modalSubsCan=can;modalTodoId=t.id;
   const host=document.createElement('div');host.id='todoModalHost';
   host.innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeTodoModal()"><div class="modalbox">
     <div style="font-weight:700;font-size:16px;margin-bottom:12px">할 일 상세${can?'':' (보기 전용)'}</div>
