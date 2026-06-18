@@ -279,7 +279,7 @@ function pomoCard(todos){const p=window.pomo;const fopt=(sel)=>`<option value=""
     </div>
     <div style="margin-top:12px;font-size:12px;color:var(--muted)">오늘 완료 <b id="pomo-count" style="color:var(--ink)">${p.done}</b>회 · <select onchange="var v=this.value.split('/');pomoSet(+v[0],+v[1])" style="border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:12px;font-family:inherit">${opt(25,5,'25 / 5분')}${opt(50,10,'50 / 10분')}${opt(15,3,'15 / 3분')}</select></div>
     <div style="margin-top:14px;text-align:left">
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">🎯 집중 업무 (내 할 일에서 선택)</div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">🎯 집중 업무 (TO DO LIST에서 선택)</div>
       <div style="display:flex;gap:8px">
         <div style="flex:1"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">1순위</div><select onchange="pomoSetFocus(1,this.value)" style="width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 9px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)">${fopt(p.focus1)}</select></div>
         <div style="flex:1"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">2순위</div><select onchange="pomoSetFocus(2,this.value)" style="width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 9px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)">${fopt(p.focus2)}</select></div>
@@ -305,14 +305,15 @@ async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
   const tl=groupTodoByField(todayItems,ts.compSet);
+  const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];
   const cal=await calendarBlock();
   return `<div class="grid2" style="align-items:stretch">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>
     <div class="grid2" style="margin-top:18px">
-    <div><h2 class="sec">내 할일 (today)</h2><div class="card">${tl}</div></div>
-    <div><h2 class="sec">할 일 등록</h2>${todoAddForm()}</div>
+    <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}</div></div>
+    <div><h2 class="sec">할 일 등록</h2>${todoAddForm(homeEmps)}</div>
     </div>
     <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
 }
@@ -574,7 +575,7 @@ function prioPill(t){const p=t.priority||'보통';const m={'높음':'#D64545','�
 function fieldPill(t){return t.field?`<span class="tdtag" style="color:var(--navy);background:var(--blue-soft)">${esc(t.field)}</span>`:'';}
 function dueTag(t,ck){if(!t.due_date)return '';const today=todayStr();const overdue=t.due_date<today&&!ck;const col=overdue?'var(--red)':(t.due_date===today?'var(--amber)':'var(--muted)');const bg=overdue?'var(--red-soft)':(t.due_date===today?'var(--amber-soft)':'var(--bg)');const md=t.due_date.slice(5).replace('-','/');return `<span class="tdtag" style="color:${col};background:${bg}">~${md}</span>`;}
 function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
-  const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}</label>`).join('')+`</div>`:'';
+  const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}</label>`).join('')+`</div>`:'';
   return `<div class="tdblock"><div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:14px">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
 async function toggleTodo2(id,rt,checked){
   if(rt==='project'){await sb.from('todos').update({done:!checked}).eq('id',id);}
@@ -582,13 +583,14 @@ async function toggleTodo2(id,rt,checked){
   else{await sb.from('todo_completions').insert({todo_id:id,employee_id:me.id,done_date:todayStr()});}
   render();
 }
-function todoAddForm(){
+function todoAddForm(emps){
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===todayWeekday()?'selected':''}>${d}요일</option>`).join('');
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===new Date().getDate()?'selected':''}>${d}일</option>`).join('');
   return `<div class="card" style="max-width:560px">
       <div class="field"><label>내용</label><input id="td-in" placeholder="할 일을 입력하세요"></div>
       <div class="field two"><div><label>분류</label><select id="td-type" onchange="var v=this.value;document.getElementById('td-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('td-mdwrap').style.display=v==='monthly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option><option value="monthly">매월(날짜 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div><div id="td-mdwrap" style="display:none"><label>날짜</label><select id="td-md">${mdOpts}</select></div></div>
       <div class="field two"><div><label>우선순위</label><select id="td-prio"><option>보통</option><option>높음</option><option>낮음</option></select></div><div><label>분야</label><select id="td-field"><option value="">미지정</option><option>틱톡</option><option>그룹라이브</option><option>마케팅</option><option>매니지먼트</option><option>경영/전략</option></select></div></div>
+      <div class="field"><label>담당자 (배분)</label><select id="td-assignee">${(emps||[]).map(e=>`<option value="${e.id}" ${e.id===me.id?'selected':''}>${esc(e.name)}${e.id===me.id?' (나)':''}</option>`).join('')}</select></div>
       <div class="field"><label>시작 예정일 (이 날짜부터 목록에 표시 · 선택)</label><input type="date" id="td-start"></div>
       <div class="field"><label>마감일 (선택)</label><input type="date" id="td-due"></div>
       <div class="field"><label>비고</label><textarea id="td-note" rows="3" placeholder="자세한 내용을 입력하세요 (선택)"></textarea></div>
@@ -598,21 +600,23 @@ function todoAddForm(){
 }
 function draftSubListHtml(){
   if(!draftSubs.length)return '';
-  return '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px">'+draftSubs.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:6px 10px"><span style="flex:1;font-size:13px">${esc(s.t)}</span><input type="date" value="${s.due||''}" onchange="setDraftSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit"><button type="button" class="xmini" onclick="removeDraftSub(${i})">\u00d7</button></div>`).join('')+'</div>';
+  return '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px">'+draftSubs.map((s,i)=>`<div style="background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:13px">${esc(s.t)}</span><input type="date" value="${s.due||''}" onchange="setDraftSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit"><button type="button" class="xmini" onclick="removeDraftSub(${i})">\u00d7</button></div><input type="text" placeholder="비고 (선택)" value="${esc(s.note||'')}" onchange="setDraftSubNote(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit"></div>`).join('')+'</div>';
 }
-function addDraftSub(){const el=document.getElementById('td-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('td-sub-due');const du=de?de.value:'';draftSubs.push({t:v,d:false,due:du||''});el.value='';if(de)de.value='';const l=document.getElementById('td-sublist');if(l)l.innerHTML=draftSubListHtml();el.focus();}
+function addDraftSub(){const el=document.getElementById('td-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('td-sub-due');const du=de?de.value:'';draftSubs.push({t:v,d:false,due:du||'',note:''});el.value='';if(de)de.value='';const l=document.getElementById('td-sublist');if(l)l.innerHTML=draftSubListHtml();el.focus();}
 function setDraftSubDue(i,v){draftSubs[i].due=v||'';}
+function setDraftSubNote(i,v){draftSubs[i].note=v||'';}
 function removeDraftSub(i){draftSubs.splice(i,1);const l=document.getElementById('td-sublist');if(l)l.innerHTML=draftSubListHtml();}
 function modalSubListHtml(can){
   if(!modalSubs.length)return '<div class="meta" style="color:#9AA3B2">하위 업무가 없습니다</div>';
   const done=modalSubs.filter(s=>s.d).length;
-  return `<div class="meta" style="margin-bottom:4px">${done}/${modalSubs.length} 완료</div>`+'<div style="display:flex;flex-direction:column;gap:4px">'+modalSubs.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:6px 10px"><input type="checkbox" ${s.d?'checked':''} ${can?'':'disabled'} onclick="toggleModalSub(${i})" style="width:18px;height:18px;flex:0 0 auto;accent-color:var(--blue)"><span style="flex:1;font-size:13px;${s.d?'text-decoration:line-through;color:#9AA3B2':''}">${esc(s.t)}</span>${can?`<input type="date" value="${s.due||''}" onchange="setModalSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit">`:(s.due?`<span style="font-size:11px;color:#D85A30">${s.due}</span>`:'')}${can?`<button type="button" class="xmini" onclick="removeModalSub(${i})">\u00d7</button>`:''}</div>`).join('')+'</div>';
+  return `<div class="meta" style="margin-bottom:4px">${done}/${modalSubs.length} 완료</div>`+'<div style="display:flex;flex-direction:column;gap:6px">'+modalSubs.map((s,i)=>`<div style="background:#F6F8FB;border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${s.d?'checked':''} ${can?'':'disabled'} onclick="toggleModalSub(${i})" style="width:18px;height:18px;flex:0 0 auto;accent-color:var(--blue)"><span style="flex:1;font-size:13px;${s.d?'text-decoration:line-through;color:#9AA3B2':''}">${esc(s.t)}</span>${can?`<input type="date" value="${s.due||''}" onchange="setModalSubDue(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;font-family:inherit">`:(s.due?`<span style="font-size:11px;color:#D85A30">${s.due}</span>`:'')}${can?`<button type="button" class="xmini" onclick="removeModalSub(${i})">\u00d7</button>`:''}</div>${can?`<input type="text" placeholder="비고 (선택)" value="${esc(s.note||'')}" onchange="setModalSubNote(${i},this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px;font-family:inherit">`:(s.note?`<div style="font-size:11px;color:#6B7280">${esc(s.note)}</div>`:'')}</div>`).join('')+'</div>';
 }
 function refreshModalSubs(){const l=document.getElementById('tm-sublist');if(l)l.innerHTML=modalSubListHtml(modalSubsCan);}
 async function persistModalSubs(){if(modalSubsCan&&modalTodoId){await sb.from('todos').update({subtasks:modalSubs}).eq('id',modalTodoId);}}
 function toggleModalSub(i){modalSubs[i].d=!modalSubs[i].d;refreshModalSubs();persistModalSubs();}
-function addModalSub(){const el=document.getElementById('tm-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('tm-sub-due');const du=de?de.value:'';modalSubs.push({t:v,d:false,due:du||''});el.value='';if(de)de.value='';refreshModalSubs();el.focus();persistModalSubs();}
+function addModalSub(){const el=document.getElementById('tm-sub-in');if(!el)return;const v=el.value.trim();if(!v)return;const de=document.getElementById('tm-sub-due');const du=de?de.value:'';modalSubs.push({t:v,d:false,due:du||'',note:''});el.value='';if(de)de.value='';refreshModalSubs();el.focus();persistModalSubs();}
 function setModalSubDue(i,v){modalSubs[i].due=v||'';persistModalSubs();}
+function setModalSubNote(i,v){modalSubs[i].note=v||'';persistModalSubs();}
 function removeModalSub(i){modalSubs.splice(i,1);refreshModalSubs();persistModalSubs();}
 async function toggleRowSub(id,i){const {data:t}=await sb.from('todos').select('subtasks').eq('id',id).maybeSingle();if(!t)return;const subs=Array.isArray(t.subtasks)?t.subtasks:[];if(!subs[i])return;subs[i].d=!subs[i].d;await sb.from('todos').update({subtasks:subs}).eq('id',id);render();}
 function groupTodoByField(items,compSet){
@@ -625,6 +629,7 @@ function groupTodoByField(items,compSet){
 }
 async function viewTodo(){
   const ts=await fetchTodoState();
+  const formEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];
   const items=sortByPrio(ts.defs.filter(applicableToday));
   const list=groupTodoByField(items,ts.compSet);
   const byId={};ts.defs.forEach(t=>byId[t.id]=t);
@@ -654,7 +659,7 @@ async function viewTodo(){
   const upRows=upcoming.length?upcoming.map(t=>`<div class="row" style="cursor:pointer" onclick="openTodoModal('${t.id}')"><div><div class="ttl">${esc(t.content)}</div><div class="meta">${t.start_date}부터 시작 · ${todoTag(t)}</div></div><span class="tdtag">예정</span></div>`).join(''):'';
   return `<div class="grid2"><div>
     <h2 class="sec">오늘 할 일</h2><div class="card" style="max-width:560px">${list}</div>
-    <h2 class="sec">할 일 추가</h2>${todoAddForm()}</div>
+    <h2 class="sec">할 일 추가</h2>${todoAddForm(formEmps)}</div>
     <div>${upRows?`<h2 class="sec">예정 (시작 전)</h2><div class="card">${upRows}</div>`:''}<h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>${adminBlock}`;
 }
 async function addTodo(){
@@ -667,7 +672,8 @@ async function addTodo(){
   const due=$('td-due')?$('td-due').value:'';
   const start=$('td-start')?$('td-start').value:'';
   el.value='';
-  await sb.from('todos').insert({employee_id:me.id,content:v,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null,start_date:start||null,subtasks:draftSubs});
+  const assignee=($('td-assignee')&&$('td-assignee').value)?$('td-assignee').value:me.id;
+  await sb.from('todos').insert({employee_id:assignee,content:v,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null,start_date:start||null,subtasks:draftSubs});
   draftSubs=[];
   render();
 }
@@ -676,19 +682,22 @@ async function openTodoModal(id){
   const {data:t}=await sb.from('todos').select('*').eq('id',id).maybeSingle();
   if(!t)return;
   const can=me.is_admin||t.employee_id===me.id;
+  const emps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];
+  const asel=emps.map(e=>`<option value="${e.id}" ${e.id===t.employee_id?'selected':''}>${esc(e.name)}${e.id===me.id?' (나)':''}</option>`).join('');
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===t.weekday?'selected':''}>${d}요일</option>`).join('');
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===t.weekday?'selected':''}>${d}일</option>`).join('');
   const tsel=(v,l)=>`<option value="${v}" ${t.recur_type===v?'selected':''}>${l}</option>`;
   const psel=p=>`<option ${(t.priority||'보통')===p?'selected':''}>${p}</option>`;
   const FIELDS=['틱톡','그룹라이브','마케팅','매니지먼트','경영/전략'];
   const fsel=FIELDS.map(f=>`<option ${t.field===f?'selected':''}>${f}</option>`).join('');
-  modalSubs=Array.isArray(t.subtasks)?t.subtasks.map(x=>({t:x.t,d:!!x.d,due:x.due||''})):[];modalSubsCan=can;modalTodoId=t.id;
+  modalSubs=Array.isArray(t.subtasks)?t.subtasks.map(x=>({t:x.t,d:!!x.d,due:x.due||'',note:x.note||''})):[];modalSubsCan=can;modalTodoId=t.id;
   const host=document.createElement('div');host.id='todoModalHost';
   host.innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeTodoModal()"><div class="modalbox">
     <div style="font-weight:700;font-size:16px;margin-bottom:12px">할 일 상세${can?'':' (보기 전용)'}</div>
     <div class="field"><label>내용</label><input id="tm-in" value="${esc(t.content)}" ${can?'':'disabled'}></div>
     <div class="field two"><div><label>분류</label><select id="tm-type" ${can?'':'disabled'} onchange="var v=this.value;document.getElementById('tm-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('tm-mdwrap').style.display=v==='monthly'?'':'none'">${tsel('project','프로젝트(한 번)')}${tsel('daily','데일리(매일)')}${tsel('weekly','매주(요일 지정)')}${tsel('monthly','매월(날짜 지정)')}</select></div><div id="tm-wdwrap" style="display:${t.recur_type==='weekly'?'':'none'}"><label>요일</label><select id="tm-wd" ${can?'':'disabled'}>${wdOpts}</select></div><div id="tm-mdwrap" style="display:${t.recur_type==='monthly'?'':'none'}"><label>날짜</label><select id="tm-md" ${can?'':'disabled'}>${mdOpts}</select></div></div>
     <div class="field two"><div><label>우선순위</label><select id="tm-prio" ${can?'':'disabled'}>${psel('보통')}${psel('높음')}${psel('낮음')}</select></div><div><label>분야</label><select id="tm-field" ${can?'':'disabled'}><option value="" ${!t.field?'selected':''}>미지정</option>${fsel}</select></div></div>
+    <div class="field"><label>담당자 (배분)</label><select id="tm-assignee" ${can?'':'disabled'}>${asel}</select></div>
     <div class="field"><label>비고</label><textarea id="tm-note" rows="4" ${can?'':'disabled'} placeholder="자세한 내용">${esc(t.note||'')}</textarea></div>
     <div class="field two"><div><label>시작 예정일</label><input type="date" id="tm-start" value="${t.start_date||''}" ${can?'':'disabled'}></div><div><label>마감일</label><input type="date" id="tm-due" value="${t.due_date||''}" ${can?'':'disabled'}></div></div>
     <div style="margin-top:13px"><label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600">하위 업무</label><div id="tm-sublist">${modalSubListHtml(can)}</div>${can?`<div style="display:flex;gap:6px;margin-top:6px"><input id="tm-sub-in" placeholder="하위 업무 입력 후 추가" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addModalSub()}" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;flex:1"><input type="date" id="tm-sub-due" style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px;font-family:inherit"><button type="button" onclick="addModalSub()" style="background:#EEF1F6;border:1px solid var(--line);border-radius:9px;padding:0 14px;font-weight:600;cursor:pointer;white-space:nowrap">추가</button></div>`:''}</div>
@@ -704,7 +713,9 @@ async function saveTodoEdit(id){
   const rt=$('tm-type').value;
   let wd=null;if(rt==='weekly')wd=parseInt($('tm-wd').value);else if(rt==='monthly')wd=parseInt($('tm-md').value);
   const prio=$('tm-prio').value;const field=$('tm-field').value;const note=$('tm-note').value.trim();const due=$('tm-due')?$('tm-due').value:'';const start=$('tm-start')?$('tm-start').value:'';
-  await sb.from('todos').update({content,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null,start_date:start||null,subtasks:modalSubs}).eq('id',id);
+  const upd={content,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null,start_date:start||null,subtasks:modalSubs};
+  const asg=$('tm-assignee')&&$('tm-assignee').value;if(asg)upd.employee_id=asg;
+  await sb.from('todos').update(upd).eq('id',id);
   closeTodoModal();toast('수정되었습니다');render();
 }
 async function delTodoFromModal(id){await sb.from('todos').delete().eq('id',id);closeTodoModal();toast('삭제되었습니다');render();}
