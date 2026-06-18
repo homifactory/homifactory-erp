@@ -655,7 +655,7 @@ async function viewTodo(){
   const {data:recent}=await sb.from('todo_completions').select('todo_id,done_date').eq('employee_id',me.id).gte('done_date',since).order('done_date',{ascending:false});
   const compRows=(recent||[]).filter(c=>byId[c.todo_id]).map(c=>`<div class="row"><div class="ttl" style="text-decoration:line-through;color:var(--muted)">${esc(byId[c.todo_id].content)} <span class="tdtag">${todoTag(byId[c.todo_id])}</span></div><div class="meta">${c.done_date}</div></div>`);
   const projRows=ts.defs.filter(t=>t.recur_type==='project'&&t.done).map(t=>`<div class="row"><div class="ttl" style="text-decoration:line-through;color:var(--muted)">${esc(t.content)} <span class="tdtag">프로젝트</span></div><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>`);
-  const doneList=[...projRows,...compRows].join('')||'<div class="empty">완료한 업무가 없습니다</div>';
+  const doneList=[...projRows,...compRows].slice(0,10).join('')||'<div class="empty">완료한 업무가 없습니다</div>';
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===todayWeekday()?'selected':''}>${d}요일</option>`).join('');
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===new Date().getDate()?'selected':''}>${d}일</option>`).join('');
   let adminBlock='';
