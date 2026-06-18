@@ -198,6 +198,7 @@ async function afterLogin(user){
   $('meav').textContent=(me.name||'·')[0];$('mename').textContent=me.name||'';$('merole').textContent=(me.is_admin?'관리자 · ':'')+(me.role||'');
   const d=new Date();$('today').textContent=`${d.getMonth()+1}월 ${d.getDate()}일`;
   await refreshBadges();
+  try{setEmpMap((await sb.from('emp_dir').select('id,name').order('name')).data||[]);}catch(e){}
   fetchMailUnread();
   render();
 }
@@ -304,8 +305,8 @@ if(!window._mailInt)window._mailInt=setInterval(function(){if(me&&window.gToken)
 async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
-  const tl=groupTodoByField(todayItems,ts.compSet);
   const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
+  const tl=groupTodoByField(todayItems,ts.compSet);
   const cal=await calendarBlock();
   return `<div class="grid2" style="align-items:stretch">
     <div>${clockCard(a)}</div>
