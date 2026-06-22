@@ -567,7 +567,7 @@ function applicableToday(t){
   if(t.recur_type==='daily')return true;
   if(t.recur_type==='weekly')return t.weekday===todayWeekday();
   if(t.recur_type==='monthly')return t.weekday===new Date().getDate();
-  return !t.done;
+  return !t.done || t.done_date===todayStr();
 }
 function todoChecked(t,compSet){return t.recur_type==='project'?!!t.done:compSet.has(t.id);}
 function todoTag(t){return t.recur_type==='daily'?'데일리':t.recur_type==='weekly'?('매주 '+WD[t.weekday]+'요일'):t.recur_type==='monthly'?('매월 '+t.weekday+'일'):'프로젝트';}
@@ -579,7 +579,7 @@ function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
   const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}${s.asg&&empMap[s.asg]?`<span style="font-size:10px;color:var(--navy);background:var(--blue-soft);border-radius:5px;padding:1px 5px;margin-left:4px">${esc(empMap[s.asg])}</span>`:''}</label>`).join('')+`</div>`:'';
   return `<div class="tdblock"><div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:15px;font-weight:700;color:var(--ink)">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
 async function toggleTodo2(id,rt,checked){
-  if(rt==='project'){await sb.from('todos').update({done:!checked}).eq('id',id);}
+  if(rt==='project'){const nd=!checked;await sb.from('todos').update({done:nd,done_date:nd?todayStr():null}).eq('id',id);}
   else if(checked){await sb.from('todo_completions').delete().eq('todo_id',id).eq('employee_id',me.id).eq('done_date',todayStr());}
   else{await sb.from('todo_completions').insert({todo_id:id,employee_id:me.id,done_date:todayStr()});}
   render();
