@@ -221,16 +221,57 @@ function navItems(){
 }
 function renderNav(){
   $('nav').innerHTML=navItems().map(([k,l])=>{
-    if(k==='mail')return `<button onclick="openCompanyMail()"><span>${l} ↗</span>${window._mailUnread?`<span class="badge">${window._mailUnread>99?'99+':window._mailUnread}</span>`:''}</button>`;
+    if(k==='mail')return `<button class="${tab===k?'on':''}" onclick="go('mail')"><span>${l}</span>${window._mailUnread?`<span class="badge">${window._mailUnread>99?'99+':window._mailUnread}</span>`:''}</button>`;
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',contacts:'주소록',leave:'휴가',approval:'전자결재',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',contacts:'주소록',leave:'휴가',approval:'전자결재',mail:'메일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function toggleSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(!sd)return;var open=sd.classList.toggle('open');if(o)o.classList.toggle('show',open);}
 function closeSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(sd)sd.classList.remove('open');if(o)o.classList.remove('show');}
 function go(t){tab=t;closeSide();render();$('view').scrollTop=0;}
 function openCompanyMail(){window.open('https://mail.google.com/a/homifactory.com/','_blank');}
-const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+function b64urlDecode(s){if(!s)return '';try{return decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))));}catch(e){try{return atob(s.replace(/-/g,'+').replace(/_/g,'/'));}catch(e2){return '';}}}
+function extractMailBody(payload){var html='',text='';function walk(p){if(!p)return;if(p.mimeType==='text/html'&&p.body&&p.body.data){html=b64urlDecode(p.body.data);}else if(p.mimeType==='text/plain'&&p.body&&p.body.data&&!text){text=b64urlDecode(p.body.data);}if(p.parts)p.parts.forEach(walk);}walk(payload);return {html:html,text:text};}
+function mailAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
+function mailPermCard(){return `<div class="card" style="max-width:520px"><div style="padding:14px 4px;color:var(--muted);font-size:14px;line-height:1.5">메일을 ERP에서 바로 보려면 구글 계정의 메일 읽기 권한이 필요합니다.<br>아래 버튼을 눌러 권한을 허용해 주세요.</div><button class="ap" onclick="gcalRelogin()">구글 메일 권한 허용하기</button></div>`;}
+async function viewMail(){
+  if(!window.gToken){return mailPermCard();}
+  var rows;
+  try{
+    var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&labelIds=INBOX',{headers:{'Authorization':'Bearer '+window.gToken}});
+    if(r.status===401||r.status===403){return mailPermCard();}
+    var j=await r.json();var ids=(j.messages||[]).map(function(m){return m.id;});
+    var msgs=await Promise.all(ids.map(function(id){return fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date',{headers:{'Authorization':'Bearer '+window.gToken}}).then(function(x){return x.ok?x.json():null;});}));
+    rows=msgs.filter(Boolean).map(function(m){
+      var h={};((m.payload&&m.payload.headers)||[]).forEach(function(x){h[x.name.toLowerCase()]=x.value;});
+      var unread=(m.labelIds||[]).indexOf('UNREAD')>-1;
+      var from=(h.from||'').replace(/<[^>]*>/,'').replace(/"/g,'').trim()||(h.from||'');
+      var subj=h.subject||'(제목 없음)';
+      var dt=m.internalDate?new Date(+m.internalDate):null;
+      var dstr=dt?((dt.getMonth()+1)+'/'+dt.getDate()):'';
+      return `<div class="row" style="cursor:pointer" onclick="openMailMsg('${m.id}')"><div style="flex:1;min-width:0"><div class="ttl" style="${unread?'font-weight:700':'font-weight:500'}">${esc(subj)}</div><div class="meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(from)} · ${esc((m.snippet||'').slice(0,70))}</div></div><div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">${unread?'<span class="badge">N</span>':''}<span class="meta">${dstr}</span></div></div>`;
+    }).join('')||'<div class="empty">받은 메일이 없습니다</div>';
+  }catch(e){return `<div class="card"><div class="empty">메일을 불러오지 못했습니다</div></div>`;}
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><h2 class="sec" style="margin:0">받은편지함</h2><button onclick="openCompanyMail()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Gmail에서 열기 ↗</button></div><div class="card" style="max-width:780px">${rows}</div>`;
+}
+async function openMailMsg(id){
+  if(!window.gToken)return;
+  var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+id+'?format=full',{headers:{'Authorization':'Bearer '+window.gToken}});
+  if(!r.ok){toast('메일을 불러오지 못했습니다');return;}
+  var m=await r.json();var h={};((m.payload&&m.payload.headers)||[]).forEach(function(x){h[x.name.toLowerCase()]=x.value;});
+  var b=extractMailBody(m.payload);
+  var body=b.html?`<iframe srcdoc="${mailAttr(b.html)}" sandbox="" style="width:100%;height:60vh;border:none;background:#fff;border-radius:8px"></iframe>`:`<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.55;color:var(--ink);margin:0">${esc(b.text||(m.snippet||'(내용 없음)'))}</pre>`;
+  var host=document.createElement('div');host.id='mailModalHost';
+  host.innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeMailModal()"><div class="modalbox" style="max-width:800px">
+    <div style="font-weight:700;font-size:17px;margin-bottom:4px">${esc(h.subject||'(제목 없음)')}</div>
+    <div class="meta" style="margin-bottom:12px">${esc(h.from||'')}${h.date?' · '+esc(h.date):''}</div>
+    <div style="border-top:1px solid var(--line);padding-top:12px">${body}</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button onclick="openCompanyMail()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">Gmail에서 열기 ↗</button><button class="ap" onclick="closeMailModal()">닫기</button></div>
+  </div></div>`;
+  document.body.appendChild(host);
+}
+function closeMailModal(){var h=document.getElementById('mailModalHost');if(h)h.remove();}
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
@@ -456,7 +497,7 @@ async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제
 const GCAL='https://www.googleapis.com/calendar/v3/calendars/primary/events';
 window.gToken=window.gToken||null;
 function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
-function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
+function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
 function evToGcalBody(e){
   if(e.event_time){const t=(e.event_time.length===5?e.event_time:e.event_time.slice(0,5));
     const sd=new Date(e.event_date+'T'+t+':00');const ed=new Date(sd.getTime()+3600000);
@@ -1019,7 +1060,7 @@ async function doLogin(){
 $('loginBtn').onclick=doLogin;
 $('googleBtn').onclick=async()=>{
   const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
   if(error){m.textContent='구글 로그인 실패: '+error.message;}
 };
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
