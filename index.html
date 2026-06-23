@@ -174,7 +174,7 @@ let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date()
 let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
-let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};
+let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};let driveFolder='';
 let docModal=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -215,7 +215,7 @@ async function refreshBadges(){
   pendCounts={leave:l.count||0,doc:d.count||0};
 }
 function navItems(){
-  const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
+  const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['drive','드라이브'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
 }
@@ -225,7 +225,7 @@ function renderNav(){
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',contacts:'주소록',leave:'휴가',approval:'전자결재',mail:'메일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',drive:'드라이브',contacts:'주소록',leave:'휴가',approval:'전자결재',mail:'메일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function toggleSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(!sd)return;var open=sd.classList.toggle('open');if(o)o.classList.toggle('show',open);}
 function closeSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(sd)sd.classList.remove('open');if(o)o.classList.remove('show');}
 function go(t){tab=t;closeSide();render();$('view').scrollTop=0;}
@@ -271,7 +271,63 @@ async function openMailMsg(id){
   document.body.appendChild(host);
 }
 function closeMailModal(){var h=document.getElementById('mailModalHost');if(h)h.remove();}
-const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+function driveSize(b){if(b==null)return '';if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(0)+'KB';return (b/1048576).toFixed(1)+'MB';}
+function driveGo(p){driveFolder=p?decodeURIComponent(p):'';render();}
+async function viewDrive(){
+  var cur=driveFolder||'';
+  var fr=await sb.from('drive_folders').select('*').eq('parent',cur).order('name');
+  var fl=await sb.from('drive_files').select('*').eq('folder',cur).order('created_at',{ascending:false});
+  if(fr.error||fl.error){return `<div class="card"><div class="empty">드라이브를 불러오지 못했습니다. (초기 설정이 필요할 수 있습니다)</div></div>`;}
+  var folders=fr.data||[],files=fl.data||[];
+  var parts=cur?cur.split('/'):[];
+  var crumb=`<a onclick="driveGo('')" style="cursor:pointer;color:var(--blue)">드라이브</a>`;var acc='';
+  parts.forEach(function(p){acc=acc?acc+'/'+p:p;crumb+=` / <a onclick="driveGo('${encodeURIComponent(acc)}')" style="cursor:pointer;color:var(--blue)">${esc(p)}</a>`;});
+  var folderRows=folders.map(function(f){return `<div class="row" style="cursor:pointer" onclick="driveGo('${encodeURIComponent(f.path)}')"><div style="flex:1"><div class="ttl">📁 ${esc(f.name)}</div></div><button class="xmini" onclick="event.stopPropagation();delDriveFolder('${f.id}','${encodeURIComponent(f.path)}')">×</button></div>`;}).join('');
+  var fileRows=files.map(function(f){return `<div class="row"><div style="flex:1;cursor:pointer" onclick="dlDriveFile('${f.storage_path}','${encodeURIComponent(f.name)}')"><div class="ttl">📄 ${esc(f.name)}</div><div class="meta">${driveSize(f.size)}${f.created_by&&empMap[f.created_by]?' · '+esc(empMap[f.created_by]):''} · ${(f.created_at||'').slice(0,10)}</div></div><button class="xmini" onclick="delDriveFile('${f.id}','${f.storage_path}')">×</button></div>`;}).join('');
+  var body=(folderRows+fileRows)||'<div class="empty">이 폴더가 비어 있습니다</div>';
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;gap:10px;flex-wrap:wrap"><div class="meta" style="font-size:14px">${crumb}</div><div style="display:flex;gap:8px"><button onclick="newDriveFolder()" style="background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ 폴더</button><label class="ap" style="cursor:pointer;display:inline-flex;align-items:center">파일 업로드<input type="file" multiple style="display:none" onchange="uploadDriveFiles(this.files)"></label></div></div><div class="card" style="max-width:820px">${body}</div>`;
+}
+async function newDriveFolder(){
+  var name=prompt('폴더 이름을 입력하세요');if(!name)return;name=name.trim();if(!name)return;if(name.indexOf('/')>-1){toast('폴더 이름에 / 는 쓸 수 없습니다');return;}
+  var path=driveFolder?driveFolder+'/'+name:name;
+  var r=await sb.from('drive_folders').insert({path:path,name:name,parent:driveFolder||'',created_by:me.id});
+  if(r.error){toast('폴더 생성 실패: '+r.error.message);return;}
+  toast('폴더가 생성되었습니다');render();
+}
+async function uploadDriveFiles(files){
+  if(!files||!files.length)return;
+  toast('업로드 중...');
+  for(var i=0;i<files.length;i++){
+    var file=files[i];
+    var ext=(file.name.indexOf('.')>-1)?('.'+file.name.split('.').pop().toLowerCase()):'';
+    var key=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'_'+Math.random().toString(36).slice(2)))+ext;
+    var up=await sb.storage.from('drive').upload(key,file,{upsert:false});
+    if(up.error){toast('업로드 실패: '+up.error.message);continue;}
+    await sb.from('drive_files').insert({folder:driveFolder||'',name:file.name,storage_path:key,size:file.size,mime:file.type||null,created_by:me.id});
+  }
+  toast('업로드 완료');render();
+}
+async function dlDriveFile(path,name){
+  var r=await sb.storage.from('drive').createSignedUrl(path,120,{download:decodeURIComponent(name)});
+  if(r.error||!r.data){toast('다운로드 실패');return;}
+  window.open(r.data.signedUrl,'_blank');
+}
+async function delDriveFile(id,path){
+  if(!confirm('이 파일을 삭제할까요?'))return;
+  await sb.storage.from('drive').remove([path]);
+  await sb.from('drive_files').delete().eq('id',id);
+  toast('삭제되었습니다');render();
+}
+async function delDriveFolder(id,path){
+  path=decodeURIComponent(path);
+  var f=await sb.from('drive_files').select('id').eq('folder',path).limit(1);
+  var sub=await sb.from('drive_folders').select('id').eq('parent',path).limit(1);
+  if((f.data&&f.data.length)||(sub.data&&sub.data.length)){alert('폴더가 비어있지 않습니다. 안의 파일/폴더를 먼저 삭제해 주세요.');return;}
+  if(!confirm('이 폴더를 삭제할까요?'))return;
+  await sb.from('drive_folders').delete().eq('id',id);
+  toast('폴더가 삭제되었습니다');render();
+}
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
