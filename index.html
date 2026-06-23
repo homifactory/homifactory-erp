@@ -174,7 +174,7 @@ let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date()
 let docType='야근·주말·외근', leaveType='연차';
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
-let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};let driveFolder='';
+let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};let driveFolder='';let gdStack=[];
 let docModal=null;
 
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -327,7 +327,75 @@ async function delDriveFolder(id,path){
   await sb.from('drive_folders').delete().eq('id',id);
   toast('폴더가 삭제되었습니다');render();
 }
-const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+function gdHeaders(){return {'Authorization':'Bearer '+window.gToken};}
+function gdIsFolder(f){return f.mimeType==='application/vnd.google-apps.folder';}
+function gdGoto(i){gdStack=gdStack.slice(0,i+1);render();}
+function gdOpen(id,name,driveId){gdStack.push({id:id,name:decodeURIComponent(name),driveId:driveId||null});render();}
+function gdSize(b){if(b==null||b==='')return '';b=+b;if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(0)+'KB';if(b<1073741824)return (b/1048576).toFixed(1)+'MB';return (b/1073741824).toFixed(2)+'GB';}
+async function viewGDrive(){
+  if(!window.gToken){return mailPermCard();}
+  var cur=gdStack.length?gdStack[gdStack.length-1]:null;
+  var crumb=`<a onclick="gdGoto(-1)" style="cursor:pointer;color:var(--blue)">드라이브</a>`;
+  gdStack.forEach(function(n,i){crumb+=` / <a onclick="gdGoto(${i})" style="cursor:pointer;color:var(--blue)">${esc(n.name)}</a>`;});
+  var rowsHtml='';
+  try{
+    if(!cur){
+      var r=await fetch('https://www.googleapis.com/drive/v3/drives?pageSize=100&fields=drives(id,name)',{headers:gdHeaders()});
+      if(r.status===401||r.status===403){return mailPermCard();}
+      var j=r.ok?await r.json():{};
+      var roots=[{id:'root',name:'내 드라이브',driveId:null}].concat((j.drives||[]).map(function(d){return {id:d.id,name:d.name,driveId:d.id};}));
+      rowsHtml=roots.map(function(d){return `<div class="row" style="cursor:pointer" onclick="gdOpen('${d.id}','${encodeURIComponent(d.name)}','${d.driveId||''}')"><div class="ttl">${d.driveId?'🗂️':'📁'} ${esc(d.name)}</div></div>`;}).join('');
+    }else{
+      var q="'"+cur.id+"' in parents and trashed=false";
+      var params='q='+encodeURIComponent(q)+'&pageSize=300&fields='+encodeURIComponent('files(id,name,mimeType,size,modifiedTime)')+'&orderBy=folder,name&supportsAllDrives=true&includeItemsFromAllDrives=true';
+      if(cur.driveId){params+='&corpora=drive&driveId='+cur.driveId;}else{params+='&corpora=user';}
+      var r2=await fetch('https://www.googleapis.com/drive/v3/files?'+params,{headers:gdHeaders()});
+      if(r2.status===401||r2.status===403){return mailPermCard();}
+      var j2=r2.ok?await r2.json():{files:[]};
+      var files=j2.files||[];
+      rowsHtml=files.map(function(f){
+        if(gdIsFolder(f)){return `<div class="row" style="cursor:pointer" onclick="gdOpen('${f.id}','${encodeURIComponent(f.name)}','${cur.driveId||''}')"><div style="flex:1"><div class="ttl">📁 ${esc(f.name)}</div></div><button class="xmini" onclick="event.stopPropagation();gdDelete('${f.id}')">×</button></div>`;}
+        return `<div class="row"><div style="flex:1;cursor:pointer" onclick="gdDownload('${f.id}','${encodeURIComponent(f.name)}')"><div class="ttl">📄 ${esc(f.name)}</div><div class="meta">${gdSize(f.size)}${f.modifiedTime?' · '+f.modifiedTime.slice(0,10):''}</div></div><button class="xmini" onclick="gdDelete('${f.id}')">×</button></div>`;
+      }).join('');
+    }
+  }catch(e){return `<div class="card"><div class="empty">드라이브를 불러오지 못했습니다</div></div>`;}
+  var body=rowsHtml||'<div class="empty">비어 있습니다</div>';
+  var actions=cur?`<button onclick="gdNewFolder()" style="background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ 폴더</button><label class="ap" style="cursor:pointer;display:inline-flex;align-items:center">파일 업로드<input type="file" multiple style="display:none" onchange="gdUpload(this.files)"></label>`:'<span class="meta" style="font-size:12px">폴더(공유 드라이브)를 선택하세요</span>';
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;gap:10px;flex-wrap:wrap"><div class="meta" style="font-size:14px">${crumb}</div><div style="display:flex;gap:8px;align-items:center">${actions}</div></div><div class="card" style="max-width:820px">${body}</div>`;
+}
+async function gdNewFolder(){
+  var cur=gdStack[gdStack.length-1];if(!cur)return;
+  var name=prompt('폴더 이름');if(!name)return;name=name.trim();if(!name)return;
+  var r=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{method:'POST',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'},body:JSON.stringify({name:name,mimeType:'application/vnd.google-apps.folder',parents:[cur.id]})});
+  if(!r.ok){toast('폴더 생성 실패');return;}
+  toast('폴더 생성됨');render();
+}
+async function gdUpload(files){
+  var cur=gdStack[gdStack.length-1];if(!cur||!files||!files.length)return;
+  toast('업로드 중...');
+  for(var i=0;i<files.length;i++){
+    var file=files[i];
+    var cr=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{method:'POST',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'},body:JSON.stringify({name:file.name,parents:[cur.id]})});
+    if(!cr.ok){toast('업로드 실패: '+file.name);continue;}
+    var meta=await cr.json();
+    var up=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+meta.id+'?uploadType=media&supportsAllDrives=true',{method:'PATCH',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':(file.type||'application/octet-stream')},body:file});
+    if(!up.ok){toast('업로드 실패: '+file.name);}
+  }
+  toast('업로드 완료');render();
+}
+async function gdDownload(id,name){
+  name=decodeURIComponent(name);toast('다운로드 준비 중...');
+  var r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&supportsAllDrives=true',{headers:gdHeaders()});
+  if(!r.ok){toast('이 파일은 직접 다운로드가 안 됩니다(구글 문서 등). Drive에서 열어주세요.');return;}
+  var blob=await r.blob();var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},10000);
+}
+async function gdDelete(id){
+  if(!confirm('삭제(휴지통으로 이동)할까요?'))return;
+  var r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?supportsAllDrives=true',{method:'PATCH',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'},body:JSON.stringify({trashed:true})});
+  if(!r.ok){toast('삭제 실패(권한 확인)');return;}
+  toast('휴지통으로 이동');render();
+}
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewGDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
@@ -518,6 +586,8 @@ async function viewApproval(){
     <div><h2 class="sec">내 상신 내역</h2><div class="card">${list}</div></div></div>${docM}`;
 }
 async function submitDoc(){
+  if(window._submittingDoc)return;window._submittingDoc=true;
+  try{
   let summary='', payload={}, receipt_path=null;
   if(docType==='야근·주말·외근'){const k=$('dc-kind').value,d=$('dc-date').value,st=$('dc-s').value,e=$('dc-e').value,place=$('dc-place')?$('dc-place').value:'';const comp=((k==='주말 근무'||k==='공휴일 근무')&&$('dc-comp'))?$('dc-comp').value:'';summary=`${k} ${d} ${st}~${e}${place?' · '+place:''}${comp?' · 대체휴일 '+comp:''}`;payload={kind:k,date:d,start:st,end:e,place,comp,reason:$('dc-reason').value};}
   else if(docType==='구매 상신'){const item=$('dc-item').value,qty=Number($('dc-qty').value||1),amt=Number($('dc-amt').value||0),v=$('dc-vendor').value,card=$('dc-card').value;summary=`${item} ${qty}개 · ${amt.toLocaleString()}원 [${card}]`;payload={item,qty,amount:amt,vendor:v,card,reason:$('dc-reason').value};}
@@ -533,6 +603,7 @@ async function submitDoc(){
     toast('결재 상신 · 대체 휴일도 함께 신청되었습니다');render();return;
   }
   toast('결재가 상신되었습니다');render();
+  }finally{window._submittingDoc=false;}
 }
 async function openReceipt(path){const {data,error}=await sb.storage.from('receipts').createSignedUrl(path,180);if(error||!data){toast('영수증을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
 async function decideDoc(id,ok){
@@ -553,7 +624,7 @@ async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제
 const GCAL='https://www.googleapis.com/calendar/v3/calendars/primary/events';
 window.gToken=window.gToken||null;
 function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
-function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
+function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
 function evToGcalBody(e){
   if(e.event_time){const t=(e.event_time.length===5?e.event_time:e.event_time.slice(0,5));
     const sd=new Date(e.event_date+'T'+t+':00');const ed=new Date(sd.getTime()+3600000);
@@ -1116,7 +1187,7 @@ async function doLogin(){
 $('loginBtn').onclick=doLogin;
 $('googleBtn').onclick=async()=>{
   const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
   if(error){m.textContent='구글 로그인 실패: '+error.message;}
 };
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
