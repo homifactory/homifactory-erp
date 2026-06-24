@@ -395,7 +395,7 @@ async function gdDelete(id){
   if(!r.ok){toast('삭제 실패(권한 확인)');return;}
   toast('휴지통으로 이동');render();
 }
-const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewGDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
@@ -606,13 +606,23 @@ async function submitDoc(){
   }finally{window._submittingDoc=false;}
 }
 async function openReceipt(path){const {data,error}=await sb.storage.from('receipts').createSignedUrl(path,180);if(error||!data){toast('영수증을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
+async function sendMail(to,subject,body){
+  if(!window.gToken)return false;
+  var raw='To: '+to+'\r\nSubject: =?UTF-8?B?'+btoa(unescape(encodeURIComponent(subject)))+'?=\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n'+body;
+  var b64=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  try{var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'},body:JSON.stringify({raw:b64})});return r.ok;}catch(e){return false;}
+}
 async function decideDoc(id,ok){
-  const {data:doc}=await sb.from('documents').select('doc_type,summary').eq('id',id).maybeSingle();
+  const {data:doc}=await sb.from('documents').select('doc_type,summary,employee_id').eq('id',id).maybeSingle();
   await sb.from('documents').update({status:ok?'승인':'반려'}).eq('id',id);
   if(ok&&doc&&doc.doc_type==='구매 상신'){
     const {data:pj}=await sb.from('employees').select('id').eq('name','박영주').maybeSingle();
     if(pj){await sb.from('todos').insert({employee_id:pj.id,content:'[구매 요청] '+(doc.summary||''),recur_type:'project',priority:'높음'});}
     toast('승인 → 박영주에게 구매 요청 전달');
+  }else if(ok&&doc&&doc.doc_type==='지출 결의'){
+    var who=empMap[doc.employee_id]||'';
+    var sent=await sendMail('support@homifactory.com','[지출결의 승인] '+(doc.summary||''),'지출 결의가 승인되었습니다.\n\n신청자: '+who+'\n내용: '+(doc.summary||'')+'\n승인자: '+(me.name||'')+'\n승인일시: '+new Date().toLocaleString('ko-KR'));
+    toast(sent?'승인 완료 · support@ 메일 발송됨':'승인 완료(메일 발송 실패 · 권한 확인 필요)');
   }else{toast(ok?'승인 완료':'반려 완료');}
   await refreshBadges();render();
 }
@@ -624,7 +634,7 @@ async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제
 const GCAL='https://www.googleapis.com/calendar/v3/calendars/primary/events';
 window.gToken=window.gToken||null;
 function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
-function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
+function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
 function evToGcalBody(e){
   if(e.event_time){const t=(e.event_time.length===5?e.event_time:e.event_time.slice(0,5));
     const sd=new Date(e.event_date+'T'+t+':00');const ed=new Date(sd.getTime()+3600000);
@@ -1187,7 +1197,7 @@ async function doLogin(){
 $('loginBtn').onclick=doLogin;
 $('googleBtn').onclick=async()=>{
   const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
   if(error){m.textContent='구글 로그인 실패: '+error.message;}
 };
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
