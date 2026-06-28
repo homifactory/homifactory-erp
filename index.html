@@ -692,10 +692,12 @@ async function calendarBlock(){
   const mfrom=`${calY}-${String(calM+1).padStart(2,'0')}-01`;
   const lastDay=new Date(calY,calM+1,0).getDate();
   const mtoStr=`${calY}-${String(calM+1).padStart(2,'0')}-${lastDay}`;
+  const _fd=new Date(calY,calM,1).getDay();const _pad=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const gfrom=_pad(new Date(calY,calM,1-_fd)),gto=_pad(new Date(calY,calM,42-_fd));
   const {data:emps}=await sb.from('emp_dir').select('id,name').order('name');
   const nameById={};(emps||[]).forEach(e=>nameById[e.id]=e.name);
-  const {data:evs}=await sb.from('events').select('*').gte('event_date',mfrom).lte('event_date',mtoStr);
-  let gevs=[];try{const r=await sb.from('gcal_events').select('*').gte('event_date',mfrom).lte('event_date',mtoStr);gevs=r.data||[];}catch(e){}
+  const {data:evs}=await sb.from('events').select('*').gte('event_date',gfrom).lte('event_date',gto);
+  let gevs=[];try{const r=await sb.from('gcal_events').select('*').gte('event_date',gfrom).lte('event_date',gto);gevs=r.data||[];}catch(e){}
   const gItems=gevs.map(g=>({id:'g_'+g.id,title:g.title,event_date:g.event_date,event_time:g.event_time,event_type:'구글',source:'google'}));
   const allEv=[...(evs||[]),...gItems];
   const byDate={};allEv.forEach(e=>{const s=e.event_date,en=e.end_date||e.event_date;if(en<=s){(byDate[s]=byDate[s]||[]).push(e);}else{dateRange(s,en).forEach(d=>{(byDate[d]=byDate[d]||[]).push(e);});}});
