@@ -467,13 +467,30 @@ if(!window._visBound){window._visBound=1;document.addEventListener('visibilitych
 if(!window._mailInt)window._mailInt=setInterval(function(){if(me&&window.gToken)fetchMailUnread();},120000);
 
 /* ---------- 홈 ---------- */
+async function deptGoalsCard(){
+  const ym=todayStr().slice(0,7);
+  const r=await sb.from('dept_goals').select('*').eq('ym',ym);
+  const gs=r.data||[];const byDept={};gs.forEach(g=>{byDept[g.dept]=g.goal;});
+  const cards=GROUPS.map(d=>`<div style="flex:1;min-width:150px;background:#F6F8FB;border:1px solid var(--line);border-radius:12px;padding:11px 13px"><div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px"><span style="font-size:13px;font-weight:700;color:var(--navy)">${esc(d)}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="editDeptGoal('${encodeURIComponent(d)}')">수정</button>`:''}</div><div style="font-size:13px;line-height:1.45;color:${byDept[d]?'var(--ink)':'#9AA3B2'};white-space:pre-wrap">${byDept[d]?esc(byDept[d]):'목표 미설정'}</div></div>`).join('');
+  return `<h2 class="sec" style="margin-top:0">📌 ${+ym.slice(5)}월 부서별 목표</h2><div class="card"><div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div></div>`;
+}
+async function editDeptGoal(d){
+  d=decodeURIComponent(d);const ym=todayStr().slice(0,7);
+  const ex=(await sb.from('dept_goals').select('goal').eq('ym',ym).eq('dept',d).maybeSingle()).data;
+  const v=prompt(d+' · '+(+ym.slice(5))+'월 목표를 입력하세요',(ex&&ex.goal)||'');
+  if(v===null)return;
+  const {error}=await sb.from('dept_goals').upsert({dept:d,ym:ym,goal:v,updated_by:me.id,updated_at:new Date().toISOString()},{onConflict:'dept,ym'});
+  if(error){toast('오류: '+error.message);return;}
+  toast('목표가 저장되었습니다');render();
+}
 async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
   const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
   const tl=groupTodoByField(todayItems,ts.compSet);
   const cal=await calendarBlock();
-  return `<div class="grid2" style="align-items:stretch">
+  const goals=await deptGoalsCard();
+  return `${goals}<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>
