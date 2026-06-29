@@ -471,12 +471,13 @@ async function deptGoalsCard(){
   const ym=todayStr().slice(0,7);
   const r=await sb.from('dept_goals').select('*').eq('ym',ym);
   const gs=r.data||[];const byDept={};gs.forEach(g=>{byDept[g.dept]=Array.isArray(g.items)?g.items:[];});
-  const cards=GROUPS.map(d=>{
-    const items=byDept[d]||[];
-    const rows=items.length?items.map((it,i)=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" ${it.d?'checked':''} ${me.is_admin?'':'disabled'} onclick="toggleDeptGoal('${encodeURIComponent(d)}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="flex:1;line-height:1.4;${it.d?'text-decoration:line-through;color:#AAB2C0':'color:var(--ink)'}">${esc(it.t)}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="editDeptGoalI('${encodeURIComponent(d)}',${i})">수정</button><button class="xmini" onclick="delDeptGoalI('${encodeURIComponent(d)}',${i})">×</button>`:''}</div>`).join(''):'<div style="font-size:12px;color:#9AA3B2">목표 미설정</div>';
-    return `<div style="flex:1;min-width:190px;background:#F6F8FB;border:1px solid var(--line);border-radius:12px;padding:11px 13px"><div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px"><span style="font-size:13px;font-weight:700;color:var(--navy)">${esc(d)}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="addDeptGoal('${encodeURIComponent(d)}')">+ 추가</button>`:''}</div><div style="display:flex;flex-direction:column;gap:4px">${rows}</div></div>`;
+  const fc={'경영':'#2F6BE4','마케팅':'#D85A30','공연 및 퍼포먼스':'#7F77DD','매니지먼트':'#16A06B','틱톡 라이브':'#111','컨텐츠':'#8A93A2'};
+  const groups=GROUPS.map(d=>{
+    const items=byDept[d]||[];const col=fc[d]||'#8A93A2';
+    const rows=items.length?items.map((it,i)=>`<div class="tditem ${it.d?'done':''}"><input type="checkbox" ${it.d?'checked':''} ${me.is_admin?'':'disabled'} onclick="toggleDeptGoal('${encodeURIComponent(d)}',${i})"><span style="flex:1;font-size:14px">${esc(it.t)}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="editDeptGoalI('${encodeURIComponent(d)}',${i})">수정</button><button class="xmini" onclick="delDeptGoalI('${encodeURIComponent(d)}',${i})">\u00d7</button>`:''}</div>`).join(''):'<div class="empty" style="padding:6px 0">목표 미설정</div>';
+    return `<div class="fldgrp"><div class="fldhd" style="--fc:${col}"><span style="width:4px;height:13px;border-radius:3px;background:${col};display:inline-block"></span>${esc(d)}<span class="cnt">${items.length}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue);margin-left:auto;font-weight:700" onclick="addDeptGoal('${encodeURIComponent(d)}')">+ 추가</button>`:''}</div>${rows}</div>`;
   }).join('');
-  return `<h2 class="sec" style="margin-top:0">📌 ${+ym.slice(5)}월 부서별 목표</h2><div class="card"><div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div></div>`;
+  return `<h2 class="sec" style="margin-top:0">📌 ${+ym.slice(5)}월 부서별 목표</h2><div class="card">${groups}</div>`;
 }
 async function _deptItems(d,ym){const r=await sb.from('dept_goals').select('items').eq('dept',d).eq('ym',ym).maybeSingle();return (r.data&&Array.isArray(r.data.items))?r.data.items:[];}
 async function _deptSave(d,ym,items){return sb.from('dept_goals').upsert({dept:d,ym:ym,items:items,updated_by:me.id,updated_at:new Date().toISOString()},{onConflict:'dept,ym'});}
