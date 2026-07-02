@@ -359,7 +359,7 @@ function projModalHtml(p){
   return `<div class="modalbg" onclick="if(event.target===this)closeProjModal()"><div class="modalbox">
     <div style="font-weight:800;font-size:16px;margin-bottom:2px">${isNew?'프로젝트 등록':'프로젝트 수정'}</div>
     <div class="meta" style="margin-bottom:6px">2주 단위 단기 프로젝트를 등록하고 예산을 설정하세요</div>
-    <div class="field"><label>프로젝트 코드</label><input id="pj-code" value="${esc(p.code||'')}" placeholder="예: CAMP-2608" ${isNew?'':'disabled style=opacity:.6'}></div>
+    <input type="hidden" id="pj-code" value="${esc(p.code||'')}">
     <div class="field"><label>프로젝트명</label><input id="pj-name" value="${esc(p.name||'')}" placeholder="예: 8월 뷰티 크리에이터 캠페인"></div>
     <div class="field two"><div><label>시작일</label><input id="pj-start" type="date" value="${p.start_date||''}"></div><div><label>종료일</label><input id="pj-end" type="date" value="${p.end_date||''}"></div></div>
     <div class="field two"><div><label>총 예산(매출, 원)</label><input id="pj-budget" type="number" value="${p.budget!=null?p.budget:''}" placeholder="0"></div><div><label>상태</label><select id="pj-status">${stOpts}</select></div></div>
@@ -367,8 +367,8 @@ function projModalHtml(p){
   </div></div>`;
 }
 async function saveProject(id){
-  const code=$('pj-code').value.trim();if(!code){toast('프로젝트 코드를 입력하세요');return;}
   const name=$('pj-name').value.trim();if(!name){toast('프로젝트명을 입력하세요');return;}
+  let code=$('pj-code').value.trim();if(!code){code='P'+Date.now().toString(36).toUpperCase();}
   const rec={code:code,name:name,start_date:$('pj-start').value||null,end_date:$('pj-end').value||null,budget:Number($('pj-budget').value||0),status:$('pj-status').value};
   let error;
   if(id){({error}=await sb.from('projects').update(rec).eq('id',id));}
