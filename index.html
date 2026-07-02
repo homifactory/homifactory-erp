@@ -238,36 +238,57 @@ function mailAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/
 function mailPermCard(){return `<div class="card" style="max-width:520px"><div style="padding:14px 4px;color:var(--muted);font-size:14px;line-height:1.5">메일을 ERP에서 바로 보려면 구글 계정의 메일 읽기 권한이 필요합니다.<br>아래 버튼을 눌러 권한을 허용해 주세요.</div><button class="ap" onclick="gcalRelogin()">구글 메일 권한 허용하기</button></div>`;}
 async function viewSettlement(){
   if(!canFin())return '<div class="empty">접근 권한이 없습니다 (임원·경영지원팀 전용)</div>';
+  const pr=await sb.from('settle_projects').select('*').order('created_at');
+  const projRows=pr.data||[];
   const r=await sb.from('settlements').select('*').order('project').order('created_at');
   const all=r.data||[];
-  const projects=[...new Set(all.map(x=>x.project))];
   const byProj={};all.forEach(x=>{(byProj[x.project]=byProj[x.project]||[]).push(x);});
+  const regNames=projRows.map(p=>p.name);const projNames=[...regNames];Object.keys(byProj).forEach(n=>{if(projNames.indexOf(n)<0)projNames.push(n);});
+  const projMeta={};projRows.forEach(p=>{projMeta[p.name]=p;});
   let totRev=0,totCost=0;
-  const blocks=Object.keys(byProj).map(p=>{
-    const es=byProj[p];
+  const blocks=projNames.map(p=>{
+    const es=byProj[p]||[];
     const rev=es.filter(e=>e.type==='매출').reduce((a,e)=>a+(+e.amount||0),0);
     const cost=es.filter(e=>e.type==='매입').reduce((a,e)=>a+(+e.amount||0),0);
     totRev+=rev;totCost+=cost;const margin=rev-cost;
     const revC=es.filter(e=>e.type==='매출'&&e.checked).reduce((a,e)=>a+(+e.amount||0),0);
     const costC=es.filter(e=>e.type==='매입'&&e.checked).reduce((a,e)=>a+(+e.amount||0),0);
-    const rowsHtml=es.map(e=>{const c=e.type==='매출'?'#16A06B':'#D64545';return `<div class="row"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0"><input type="checkbox" ${e.checked?'checked':''} onclick="toggleSettleCheck('${e.id}')" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)"><div style="min-width:0"><div class="ttl" style="${e.checked?'text-decoration:line-through;color:var(--muted)':''}"><span style="color:${c};font-weight:700">${e.type}</span> ${esc(e.item||'')}${e.vendor?` <span class="meta">· ${esc(e.vendor)}</span>`:''}</div>${e.memo?`<div class="meta">${esc(e.memo)}</div>`:''}</div></div><div style="display:flex;align-items:center;gap:10px;flex:0 0 auto"><span style="font-weight:700;color:${c}">${e.type==='매입'?'-':'+'}${(+e.amount||0).toLocaleString()}원</span>${e.checked?'<span class="tdtag" style="color:var(--green);background:var(--bg)">확인</span>':''}<button class="xmini" onclick="delSettlement('${e.id}')">×</button></div></div>`;}).join('');
-    return `<div style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px"><h3 style="font-size:15px;font-weight:800;margin:0">${esc(p)}</h3><div style="display:flex;gap:14px;font-size:12.5px;flex-wrap:wrap"><span style="color:#16A06B;font-weight:700">매출 ${rev.toLocaleString()}<span style="color:#9AA3B2;font-weight:500"> (확인 ${revC.toLocaleString()})</span></span><span style="color:#D64545;font-weight:700">매입 ${cost.toLocaleString()}<span style="color:#9AA3B2;font-weight:500"> (확인 ${costC.toLocaleString()})</span></span><span style="font-weight:800;color:${margin>=0?'#16A06B':'#D64545'}">마진 ${margin.toLocaleString()}원</span></div></div><div class="card">${rowsHtml}</div></div>`;
-  }).join('')||'<div class="empty">등록된 정산 내역이 없습니다</div>';
-  const projOpts=projects.map(p=>`<option value="${esc(p)}">`).join('');
+    const rowsHtml=es.map(e=>{const c=e.type==='매출'?'#16A06B':'#D64545';return `<div class="row"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0"><input type="checkbox" ${e.checked?'checked':''} onclick="toggleSettleCheck('${e.id}')" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)"><div style="min-width:0"><div class="ttl" style="${e.checked?'text-decoration:line-through;color:var(--muted)':''}"><span style="color:${c};font-weight:700">${e.type}</span> ${esc(e.item||'')}${e.vendor?` <span class="meta">· ${esc(e.vendor)}</span>`:''}</div>${e.memo?`<div class="meta">${esc(e.memo)}</div>`:''}</div></div><div style="display:flex;align-items:center;gap:10px;flex:0 0 auto"><span style="font-weight:700;color:${c}">${e.type==='매입'?'-':'+'}${(+e.amount||0).toLocaleString()}원</span>${e.checked?'<span class="tdtag" style="color:var(--green);background:var(--bg)">확인</span>':''}<button class="xmini" onclick="delSettlement('${e.id}')">×</button></div></div>`;}).join('')||'<div class="meta" style="padding:4px 2px">등록된 매입·매출이 없습니다</div>';
+    return `<div style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px"><h3 style="font-size:15px;font-weight:800;margin:0">${esc(p)}${projMeta[p]&&projMeta[p].client?` <span class="meta" style="font-weight:500">· ${esc(projMeta[p].client)}</span>`:''}${projMeta[p]?` <button class="xmini" onclick="delSettleProject('${projMeta[p].id}')" title="프로젝트 삭제">×</button>`:''}</h3><div style="display:flex;gap:14px;font-size:12.5px;flex-wrap:wrap"><span style="color:#16A06B;font-weight:700">매출 ${rev.toLocaleString()}<span style="color:#9AA3B2;font-weight:500"> (확인 ${revC.toLocaleString()})</span></span><span style="color:#D64545;font-weight:700">매입 ${cost.toLocaleString()}<span style="color:#9AA3B2;font-weight:500"> (확인 ${costC.toLocaleString()})</span></span><span style="font-weight:800;color:${margin>=0?'#16A06B':'#D64545'}">마진 ${margin.toLocaleString()}원</span></div></div><div class="card">${rowsHtml}</div></div>`;
+  }).join('')||'<div class="empty">등록된 프로젝트가 없습니다. 오른쪽에서 프로젝트를 먼저 등록하세요.</div>';
+  const projOpts=projNames.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
   const net=totRev-totCost;
   return `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px"><div class="card" style="flex:1;min-width:150px"><div class="meta">총 매출</div><div style="font-size:20px;font-weight:800;color:#16A06B">${totRev.toLocaleString()}원</div></div><div class="card" style="flex:1;min-width:150px"><div class="meta">총 매입</div><div style="font-size:20px;font-weight:800;color:#D64545">${totCost.toLocaleString()}원</div></div><div class="card" style="flex:1;min-width:150px"><div class="meta">순이익</div><div style="font-size:20px;font-weight:800;color:${net>=0?'#16A06B':'#D64545'}">${net.toLocaleString()}원</div></div></div>
   <div class="grid2"><div><h2 class="sec">프로젝트별 정산</h2>${blocks}</div>
-  <div><h2 class="sec">항목 추가</h2><div class="card">
-    <div class="field"><label>프로젝트</label><input id="st-proj" list="st-projs" placeholder="프로젝트명 입력/선택"><datalist id="st-projs">${projOpts}</datalist></div>
+  <div><h2 class="sec">프로젝트 등록</h2><div class="card" style="margin-bottom:18px">
+    <div class="field"><label>프로젝트명</label><input id="sp-name" placeholder="예: 남미 정일훈 프로모션"></div>
+    <div class="field"><label>클라이언트 (선택)</label><input id="sp-client" placeholder="클라이언트/거래처"></div>
+    <div class="field"><label>비고 (선택)</label><input id="sp-memo" placeholder="메모"></div>
+    <button class="submit" onclick="addSettleProject()">프로젝트 추가</button>
+  </div>
+  <h2 class="sec">매입·매출 등록</h2><div class="card">
+    <div class="field"><label>프로젝트</label><select id="st-proj">${projNames.length?projOpts:'<option value="">프로젝트를 먼저 등록하세요</option>'}</select></div>
     <div class="field two"><div><label>구분</label><select id="st-type"><option>매출</option><option>매입</option></select></div><div><label>금액 (원)</label><input id="st-amt" type="number" placeholder="0"></div></div>
     <div class="field"><label>항목</label><input id="st-item" placeholder="예: 1차 정산, 촬영 외주비"></div>
     <div class="field"><label>거래처 (선택)</label><input id="st-vendor" placeholder="거래처/클라이언트"></div>
     <div class="field"><label>비고 (선택)</label><input id="st-memo" placeholder="메모"></div>
-    <button class="submit" onclick="addSettlement()">추가</button>
+    <button class="submit" onclick="addSettlement()">매입·매출 추가</button>
   </div></div></div>`;
 }
+async function addSettleProject(){
+  const n=$('sp-name').value.trim();if(!n){toast('프로젝트명을 입력하세요');return;}
+  const {error}=await sb.from('settle_projects').insert({name:n,client:$('sp-client').value||null,memo:$('sp-memo').value||null,created_by:me.id});
+  if(error){toast('오류: '+error.message);return;}
+  toast('프로젝트가 등록되었습니다');render();
+}
+async function delSettleProject(id){
+  if(!confirm('이 프로젝트를 삭제할까요? (등록된 매입·매출 내역은 유지됩니다)'))return;
+  const {error}=await sb.from('settle_projects').delete().eq('id',id);
+  if(error){toast('오류: '+error.message);return;}
+  toast('프로젝트가 삭제되었습니다');render();
+}
 async function addSettlement(){
-  const p=$('st-proj').value.trim();if(!p){toast('프로젝트명을 입력하세요');return;}
+  const p=$('st-proj').value.trim();if(!p){toast('프로젝트를 선택하세요');return;}
   const {error}=await sb.from('settlements').insert({project:p,type:$('st-type').value,item:$('st-item').value||null,vendor:$('st-vendor').value||null,amount:Number($('st-amt').value||0),memo:$('st-memo').value||null,created_by:me.id});
   if(error){toast('오류: '+error.message);return;}
   toast('정산 항목이 추가되었습니다');render();
