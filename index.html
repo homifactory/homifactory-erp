@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: paid-flag 2026-07-06 -->
+<!-- build: pay-status 2026-07-06b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -733,14 +733,31 @@ function docDetailRows(d){
   return f('지출 항목',p.cat)+f('카드 구분',p.card)+f('지출일',p.date)+f('금액',p.amount?Number(p.amount).toLocaleString()+'원':'')+f('사용처',p.vendor)+f('내역',p.reason);
 }
 const PAID_TYPES=['지출 결의','구매 상신'];
-function paidTag(d){return (PAID_TYPES.indexOf(d.doc_type)>-1&&d.paid)?` · <span style="color:#16a34a;font-weight:700">💸송금완료</span>`:'';}
-async function togglePaid(id,cur){
+function payLabel(d){return d.doc_type==='구매 상신'
+  ?{word:'구매',sec:'구매 상태',done:'🛒 구매완료',doneShort:'🛒구매완료',undone:'미구매',btn:'✔ 구매 완료 체크',cancel:'구매 취소'}
+  :{word:'송금',sec:'송금 상태',done:'💸 송금완료',doneShort:'💸송금완료',undone:'미송금',btn:'✔ 송금 완료 체크',cancel:'송금 취소'};}
+function paidTag(d){
+  if(PAID_TYPES.indexOf(d.doc_type)<0)return '';
+  const L=payLabel(d);
+  if(d.paid)return ` · <span style="color:#16a34a;font-weight:700">${L.doneShort}</span>`;
+  if(d.status==='승인')return ` · <span style="color:#f59e0b;font-weight:600">${L.undone}</span>`;
+  return '';
+}
+function paidBlockHtml(dm){
+  if(PAID_TYPES.indexOf(dm.doc_type)<0)return '';
+  const L=payLabel(dm);
+  const info=dm.paid?`<span style="color:#16a34a;font-weight:700">${L.done}</span><span class="meta">${esc(dm.paid_by||'')}${dm.paid_at?' · '+(dm.paid_at||'').slice(0,10):''}</span>`:`<span class="meta" style="color:#f59e0b;font-weight:600">${L.undone}</span>`;
+  const btn=canFin()?`<button onclick="togglePaid('${dm.id}',${dm.paid?'true':'false'},'${L.word}')" style="border:1px solid var(--line);background:${dm.paid?'#fff':'var(--blue)'};color:${dm.paid?'var(--muted)':'#fff'};border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;font-size:13px">${dm.paid?L.cancel:L.btn}</button>`:'';
+  return `<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">${L.sec}</div><div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${info}${btn}</div></div>`;
+}
+async function togglePaid(id,cur,word){
   if(!canFin()){toast('권한이 없습니다');return;}
+  word=word||'송금';
   const paid=!cur;
   const upd=paid?{paid:true,paid_by:me.name,paid_at:new Date().toISOString()}:{paid:false,paid_by:null,paid_at:null};
   const {error}=await sb.from('documents').update(upd).eq('id',id);
   if(error){toast('오류: '+error.message);return;}
-  toast(paid?'송금 완료로 표시했습니다':'송금 완료를 해제했습니다');render();
+  toast(paid?word+' 완료로 표시했습니다':word+' 완료를 해제했습니다');render();
 }
 async function viewApproval(){
   const {data:mine}=await sb.from('documents').select('*').eq('employee_id',me.id).order('created_at',{ascending:false});
@@ -762,7 +779,7 @@ async function viewApproval(){
   if(docModal){
     const {data:dm}=await sb.from('documents').select('*,employees(name)').eq('id',docModal).maybeSingle();
     if(dm){const bcol=dm.status==='승인'?'b-green':dm.status==='대기'?'b-amber':'b-red';
-      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}${PAID_TYPES.indexOf(dm.doc_type)>-1?`<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">송금 상태</div><div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${dm.paid?`<span style="color:#16a34a;font-weight:700">💸 송금완료</span><span class="meta">${esc(dm.paid_by||'')}${dm.paid_at?' · '+(dm.paid_at||'').slice(0,10):''}</span>`:`<span class="meta">미송금</span>`}${canFin()?`<button onclick="togglePaid('${dm.id}',${dm.paid?'true':'false'})" style="border:1px solid var(--line);background:${dm.paid?'#fff':'var(--blue)'};color:${dm.paid?'var(--muted)':'#fff'};border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;font-size:13px">${dm.paid?'송금 취소':'✔ 송금 완료 체크'}</button>`:''}</div></div>`:''}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 박영주 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;margin-top:14px"><button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
+      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}${paidBlockHtml(dm)}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 박영주 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;margin-top:14px"><button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
   }
   return `${admin}<div class="grid2"><div><h2 class="sec">결재 상신</h2><div class="card"><div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>${docFields()}
     <div class="field"><label>결재선</label><div style="font-size:13px;color:var(--muted)">${docType==='구매 상신'?'윤호성 (대표 승인) → 박영주 (경영지원 · 구매 진행)':'윤호성 · 배수빈 · 최성용 (대표 3인)'}</div></div>
