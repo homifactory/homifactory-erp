@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: pay-status 2026-07-06b -->
+<!-- build: goal-metrics 2026-07-06c -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -622,17 +622,25 @@ async function deptGoalsCard(){
   const fc={'경영':'#2F6BE4','마케팅':'#D85A30','공연 및 퍼포먼스':'#7F77DD','매니지먼트':'#16A06B','틱톡 라이브':'#111','컨텐츠':'#8A93A2'};
   const groups=GROUPS.map(d=>{
     const items=byDept[d]||[];const col=fc[d]||'#8A93A2';
-    const _done=items.filter(x=>x.d).length,_tot=items.length,_pct=_tot?Math.round(_done/_tot*100):0;
-    const rows=items.length?items.map((it,i)=>`<div class="tditem ${it.d?'done':''}"><input type="checkbox" ${it.d?'checked':''} ${me.is_admin?'':'disabled'} onclick="toggleDeptGoal('${encodeURIComponent(d)}',${i})"><span style="flex:1;font-size:14px">${esc(it.t)}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="editDeptGoalI('${encodeURIComponent(d)}',${i})">수정</button><button class="xmini" onclick="delDeptGoalI('${encodeURIComponent(d)}',${i})">\u00d7</button>`:''}</div>`).join(''):'<div class="empty" style="padding:6px 0">목표 미설정</div>';
+    const _pcts=items.map(_goalPct);
+    const _done=_pcts.filter(p=>p>=1).length,_tot=items.length,_pct=_tot?Math.round(_pcts.reduce((a,b)=>a+b,0)/_tot*100):0;
+    const rows=items.length?items.map((it,i)=>{
+      const tg=Number(it.tgt);
+      if(tg>0){const cur=Number(it.cur)||0;const p=Math.round(Math.min(1,cur/tg)*100);
+        return `<div class="tditem ${cur>=tg?'done':''}"><span style="flex:1;font-size:14px">${esc(it.t)}</span><input type="number" value="${cur}" ${me.is_admin?'':'disabled'} onchange="setDeptGoalCur('${encodeURIComponent(d)}',${i},this.value)" style="width:82px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;text-align:right;font-size:13px"><span style="font-size:13px;color:var(--muted);white-space:nowrap">/ ${esc(String(it.tgt))} · ${p}%</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="editDeptGoalI('${encodeURIComponent(d)}',${i})">수정</button><button class="xmini" onclick="delDeptGoalI('${encodeURIComponent(d)}',${i})">\u00d7</button>`:''}</div>`;}
+      return `<div class="tditem ${it.d?'done':''}"><input type="checkbox" ${it.d?'checked':''} ${me.is_admin?'':'disabled'} onclick="toggleDeptGoal('${encodeURIComponent(d)}',${i})"><span style="flex:1;font-size:14px">${esc(it.t)}</span>${me.is_admin?`<button class="xmini" style="color:var(--blue)" onclick="editDeptGoalI('${encodeURIComponent(d)}',${i})">수정</button><button class="xmini" onclick="delDeptGoalI('${encodeURIComponent(d)}',${i})">\u00d7</button>`:''}</div>`;
+    }).join(''):'<div class="empty" style="padding:6px 0">목표 미설정</div>';
     return `<div class="fldgrp"><div class="fldhd" style="--fc:${col}"><span style="width:4px;height:13px;border-radius:3px;background:${col};display:inline-block"></span>${esc(d)}<span class="cnt">${items.length}</span><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><div style="width:140px;height:6px;background:var(--line);border-radius:5px;overflow:hidden"><div style="width:${_pct}%;height:100%;background:${col};border-radius:5px"></div></div><span style="font-size:12px;font-weight:700;color:${_tot?col:'#9AA3B2'}">${_done}/${_tot} · ${_pct}%</span></div>${me.is_admin?`<button class="xmini" style="color:var(--blue);font-weight:700" onclick="addDeptGoal('${encodeURIComponent(d)}')">+ 추가</button>`:''}</div>${rows}</div>`;
   }).join('');
   return `<h2 class="sec" style="margin-top:0">📌 ${+ym.slice(5)}월 부서별 목표</h2><div class="card">${groups}</div>`;
 }
+function _goalPct(it){const tg=Number(it.tgt);if(tg>0)return Math.min(1,(Number(it.cur)||0)/tg);return it.d?1:0;}
 async function _deptItems(d,ym){const r=await sb.from('dept_goals').select('items').eq('dept',d).eq('ym',ym).maybeSingle();return (r.data&&Array.isArray(r.data.items))?r.data.items:[];}
+async function setDeptGoalCur(d,i,val){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;const n=Number(val);items[i].cur=isNaN(n)?0:n;if(Number(items[i].tgt)>0)items[i].d=(items[i].cur>=Number(items[i].tgt));const {error}=await _deptSave(d,ym,items);if(error){toast('오류: '+error.message);return;}render();}
 async function _deptSave(d,ym,items){return sb.from('dept_goals').upsert({dept:d,ym:ym,items:items,updated_by:me.id,updated_at:new Date().toISOString()},{onConflict:'dept,ym'});}
-async function addDeptGoal(d){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const v=prompt(d+' 목표 추가');if(v===null)return;if(!v.trim())return;const items=await _deptItems(d,ym);items.push({t:v.trim(),d:false});const {error}=await _deptSave(d,ym,items);if(error){toast('오류: '+error.message);return;}toast('목표가 추가되었습니다');render();}
+async function addDeptGoal(d){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const v=prompt(d+' 목표 추가');if(v===null)return;if(!v.trim())return;const tg=prompt('목표 수치 (숫자 입력 · 비우면 체크형 목표)','');if(tg===null)return;const items=await _deptItems(d,ym);const it={t:v.trim(),d:false};const tgn=Number(tg);if(tg.trim()!==''&&!isNaN(tgn)&&tgn>0){it.tgt=tgn;it.cur=0;}items.push(it);const {error}=await _deptSave(d,ym,items);if(error){toast('오류: '+error.message);return;}toast('목표가 추가되었습니다');render();}
 async function toggleDeptGoal(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;items[i].d=!items[i].d;await _deptSave(d,ym,items);render();}
-async function editDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;const v=prompt('목표 수정',items[i].t);if(v===null)return;items[i].t=v.trim();await _deptSave(d,ym,items);render();}
+async function editDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;const v=prompt('목표 수정',items[i].t);if(v===null)return;items[i].t=v.trim();const cur=items[i].tgt!=null?String(items[i].tgt):'';const tg=prompt('목표 수치 (숫자 · 비우면 체크형)',cur);if(tg!==null){const tgn=Number(tg);if(tg.trim()!==''&&!isNaN(tgn)&&tgn>0){items[i].tgt=tgn;if(items[i].cur==null)items[i].cur=0;}else{delete items[i].tgt;delete items[i].cur;}}await _deptSave(d,ym,items);render();}
 async function delDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;if(!confirm('이 목표를 삭제할까요?'))return;items.splice(i,1);await _deptSave(d,ym,items);toast('삭제되었습니다');render();}
 async function viewHome(){
   const a=await todayAtt();
@@ -1362,60 +1370,4 @@ async function saveArchive(){
   if(vis==='지정'){target_people=[...document.querySelectorAll('.ar-person:checked')].map(c=>c.value);if(!target_people.length){toast('공개할 사람을 선택하세요');return;}}
   const upd={title:t,category:$('ar-cat').value,impact:Number($('ar-impact').value||3),url:$('ar-url').value,note:$('ar-note').value,visibility:vis,target_depts,target_people};
   const fi=$('ar-file');
-  if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('archive-files').upload(path,f,{contentType:f.type});if(up.error){toast('파일 업로드 실패: '+up.error.message);return;}upd.file_path=path;upd.file_name=f.name;}
-  const {error}=await sb.from('archives').update(upd).eq('id',arcEdit);
-  if(error){toast('오류: '+error.message);return;}
-  arcModal=false;arcEdit=null;toast('수정되었습니다');render();
-}
-async function openArchiveFile(path){const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){toast('파일을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
-async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
-
-/* ---------- 마이페이지 ---------- */
-async function viewMyPage(){
-  const {data:{user}}=await sb.auth.getUser();
-  return `<h2 class="sec">내 정보</h2><div class="card" style="max-width:520px">
-    <div class="row"><div class="meta">이름</div><div class="ttl">${esc(me.name||'')}</div></div>
-    <div class="row"><div class="meta">이메일</div><div class="ttl">${esc(user?user.email:'')}</div></div>
-    <div class="row"><div class="meta">부서 · 직급</div><div class="ttl">${esc(me.dept||'')} ${esc(me.role||'')}${me.is_admin?' · 관리자':''}</div></div>
-  </div>
-  <h2 class="sec">비밀번호 변경</h2><div class="card" style="max-width:520px">
-    <div class="field"><label>새 비밀번호</label><input type="password" id="np1" placeholder="새 비밀번호 (8자 이상 권장)"></div>
-    <div class="field"><label>새 비밀번호 확인</label><input type="password" id="np2" placeholder="다시 입력"></div>
-    <button class="submit" onclick="changePw()">비밀번호 변경</button>
-    <div class="meta" id="pwmsg" style="margin-top:10px"></div>
-  </div>`;
-}
-async function changePw(){
-  const a=$('np1').value,b=$('np2').value,m=$('pwmsg');m.style.color='var(--muted)';m.textContent='';
-  if(!a||a.length<6){m.style.color='var(--red)';m.textContent='6자 이상 입력하세요';return;}
-  if(a!==b){m.style.color='var(--red)';m.textContent='두 비밀번호가 일치하지 않습니다';return;}
-  const {error}=await sb.auth.updateUser({password:a});
-  if(error){m.style.color='var(--red)';m.textContent='오류: '+error.message;return;}
-  m.style.color='var(--green)';m.textContent='✓ 비밀번호가 변경되었습니다';$('np1').value='';$('np2').value='';
-}
-
-/* ---------- 로그인 ---------- */
-async function doLogin(){
-  const email=$('email').value.trim(),pw=$('pw').value;const m=$('lmsg');m.textContent='';
-  if(!email||!pw){m.textContent='이메일과 비밀번호를 입력하세요';return;}
-  $('loginBtn').disabled=true;$('loginBtn').textContent='로그인 중…';
-  const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
-  $('loginBtn').disabled=false;$('loginBtn').textContent='로그인';
-  if(error){m.textContent='로그인 실패: '+error.message;return;}
-  afterLogin(data.user);
-}
-$('loginBtn').onclick=doLogin;
-$('googleBtn').onclick=async()=>{
-  const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
-  if(error){m.textContent='구글 로그인 실패: '+error.message;}
-};
-$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-$('logout').onclick=async()=>{await sb.auth.signOut();showLogin();};
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='td-in')addTodo();});
-sb.auth.getSession().then(({data})=>{if(data.session){if(data.session.provider_token)window.gToken=data.session.provider_token;afterLogin(data.session.user);}});
-sb.auth.onAuthStateChange((ev,session)=>{if(session&&session.provider_token)window.gToken=session.provider_token;});
-</script>
-<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
-</body>
-</html>
+  if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/$
