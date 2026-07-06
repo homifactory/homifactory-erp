@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: goal-metrics 2026-07-06c -->
+<!-- build: fix-truncation 2026-07-06d -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -1370,4 +1370,60 @@ async function saveArchive(){
   if(vis==='지정'){target_people=[...document.querySelectorAll('.ar-person:checked')].map(c=>c.value);if(!target_people.length){toast('공개할 사람을 선택하세요');return;}}
   const upd={title:t,category:$('ar-cat').value,impact:Number($('ar-impact').value||3),url:$('ar-url').value,note:$('ar-note').value,visibility:vis,target_depts,target_people};
   const fi=$('ar-file');
-  if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/$
+  if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('archive-files').upload(path,f,{contentType:f.type});if(up.error){toast('파일 업로드 실패: '+up.error.message);return;}upd.file_path=path;upd.file_name=f.name;}
+  const {error}=await sb.from('archives').update(upd).eq('id',arcEdit);
+  if(error){toast('오류: '+error.message);return;}
+  arcModal=false;arcEdit=null;toast('수정되었습니다');render();
+}
+async function openArchiveFile(path){const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){toast('파일을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
+async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
+
+/* ---------- 마이페이지 ---------- */
+async function viewMyPage(){
+  const {data:{user}}=await sb.auth.getUser();
+  return `<h2 class="sec">내 정보</h2><div class="card" style="max-width:520px">
+    <div class="row"><div class="meta">이름</div><div class="ttl">${esc(me.name||'')}</div></div>
+    <div class="row"><div class="meta">이메일</div><div class="ttl">${esc(user?user.email:'')}</div></div>
+    <div class="row"><div class="meta">부서 · 직급</div><div class="ttl">${esc(me.dept||'')} ${esc(me.role||'')}${me.is_admin?' · 관리자':''}</div></div>
+  </div>
+  <h2 class="sec">비밀번호 변경</h2><div class="card" style="max-width:520px">
+    <div class="field"><label>새 비밀번호</label><input type="password" id="np1" placeholder="새 비밀번호 (8자 이상 권장)"></div>
+    <div class="field"><label>새 비밀번호 확인</label><input type="password" id="np2" placeholder="다시 입력"></div>
+    <button class="submit" onclick="changePw()">비밀번호 변경</button>
+    <div class="meta" id="pwmsg" style="margin-top:10px"></div>
+  </div>`;
+}
+async function changePw(){
+  const a=$('np1').value,b=$('np2').value,m=$('pwmsg');m.style.color='var(--muted)';m.textContent='';
+  if(!a||a.length<6){m.style.color='var(--red)';m.textContent='6자 이상 입력하세요';return;}
+  if(a!==b){m.style.color='var(--red)';m.textContent='두 비밀번호가 일치하지 않습니다';return;}
+  const {error}=await sb.auth.updateUser({password:a});
+  if(error){m.style.color='var(--red)';m.textContent='오류: '+error.message;return;}
+  m.style.color='var(--green)';m.textContent='✓ 비밀번호가 변경되었습니다';$('np1').value='';$('np2').value='';
+}
+
+/* ---------- 로그인 ---------- */
+async function doLogin(){
+  const email=$('email').value.trim(),pw=$('pw').value;const m=$('lmsg');m.textContent='';
+  if(!email||!pw){m.textContent='이메일과 비밀번호를 입력하세요';return;}
+  $('loginBtn').disabled=true;$('loginBtn').textContent='로그인 중…';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  $('loginBtn').disabled=false;$('loginBtn').textContent='로그인';
+  if(error){m.textContent='로그인 실패: '+error.message;return;}
+  afterLogin(data.user);
+}
+$('loginBtn').onclick=doLogin;
+$('googleBtn').onclick=async()=>{
+  const m=$('lmsg');m.textContent='';
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
+  if(error){m.textContent='구글 로그인 실패: '+error.message;}
+};
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+$('logout').onclick=async()=>{await sb.auth.signOut();showLogin();};
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='td-in')addTodo();});
+sb.auth.getSession().then(({data})=>{if(data.session){if(data.session.provider_token)window.gToken=data.session.provider_token;afterLogin(data.session.user);}});
+sb.auth.onAuthStateChange((ev,session)=>{if(session&&session.provider_token)window.gToken=session.provider_token;});
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body>
+</html>
