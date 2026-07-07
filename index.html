@@ -1385,7 +1385,7 @@ async function saveArchive(){
   if(error){toast('오류: '+error.message);return;}
   arcModal=false;arcEdit=null;toast('수정되었습니다');render();
 }
-async function openArchiveFile(path){const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){toast('파일을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
+async function openArchiveFile(path){const isHtml=/\.html?$/i.test(path);const w=isHtml?window.open('','_blank'):null;const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){if(w)w.close();toast('파일을 열 수 없습니다');return;}if(isHtml){try{const res=await fetch(data.signedUrl);const html=await res.text();const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);if(w){w.location.href=url;}else{window.open(url,'_blank');}setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){if(w){w.location.href=data.signedUrl;}else{window.open(data.signedUrl,'_blank');}}return;}window.open(data.signedUrl,'_blank');}
 async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
 
 /* ---------- 마이페이지 ---------- */
