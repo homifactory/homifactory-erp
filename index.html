@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: staff-rajeongseon 2026-07-06e -->
+<!-- build: todo-snooze 2026-07-07a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -645,6 +645,8 @@ async function delDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().sli
 async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
+  const snoozedToday=sortByPrio(ts.defs.filter(t=>applicableTodayRaw(t)&&t.snooze_date===todayStr()&&!todoChecked(t,ts.compSet)));
+  const snoozedHtml=snoozedToday.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)"><div class="meta" style="font-weight:700;color:var(--muted);margin-bottom:4px">🌙 오늘 미룬 할 일 · ${snoozedToday.length}</div>`+snoozedToday.map(t=>`<div class="row" style="opacity:.65"><div class="ttl" style="font-size:14px">${esc(t.content)} <span class="tdtag">${todoTag(t)}</span></div><button class="xmini" style="color:var(--blue)" onclick="unsnooze('${t.id}')">오늘로 되돌리기</button></div>`).join('')+`</div>`:'';
   const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
   const tl=groupTodoByField(todayItems,ts.compSet);
   const cal=await calendarBlock();
@@ -654,7 +656,7 @@ async function viewHome(){
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>
     <div class="grid2" style="margin-top:18px">
-    <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}</div></div>
+    <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}${snoozedHtml}</div></div>
     <div><h2 class="sec">TO DO LIST 등록</h2>${todoAddForm(homeEmps)}</div>
     </div>
     <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
@@ -953,13 +955,16 @@ async function fetchTodoState(){
   const {data:comps}=await sb.from('todo_completions').select('todo_id').eq('employee_id',me.id).eq('done_date',todayStr());
   return {defs:defs||[],compSet:new Set((comps||[]).map(c=>c.todo_id))};
 }
-function applicableToday(t){
+function applicableTodayRaw(t){
   if(t.start_date && t.start_date>todayStr())return false;
   if(t.recur_type==='daily')return true;
   if(t.recur_type==='weekly')return t.weekday===todayWeekday();
   if(t.recur_type==='monthly')return t.weekday===new Date().getDate();
   return !t.done || t.done_date===todayStr();
 }
+function applicableToday(t){return applicableTodayRaw(t) && t.snooze_date!==todayStr();}
+async function toggleSnooze(id){await sb.from('todos').update({snooze_date:todayStr()}).eq('id',id);toast('내일로 미뤘습니다 · 내일 다시 표시됩니다');render();}
+async function unsnooze(id){await sb.from('todos').update({snooze_date:null}).eq('id',id);render();}
 function todoChecked(t,compSet){return t.recur_type==='project'?!!t.done:compSet.has(t.id);}
 function todoTag(t){return t.recur_type==='daily'?'데일리':t.recur_type==='weekly'?('매주 '+WD[t.weekday]+'요일'):t.recur_type==='monthly'?('매월 '+t.weekday+'일'):'프로젝트';}
 function sortByPrio(a){const r={'최상':-1,'높음':0,'보통':1,'낮음':2};return a.slice().sort((x,y)=>(r[x.priority]??1)-(r[y.priority]??1));}
@@ -968,7 +973,7 @@ function fieldPill(t){return t.field?`<span class="tdtag" style="color:var(--nav
 function dueTag(t,ck){if(!t.due_date)return '';const today=todayStr();const overdue=t.due_date<today&&!ck;const col=overdue?'var(--red)':(t.due_date===today?'var(--amber)':'var(--muted)');const bg=overdue?'var(--red-soft)':(t.due_date===today?'var(--amber-soft)':'var(--bg)');const md=t.due_date.slice(5).replace('-','/');return `<span class="tdtag" style="color:${col};background:${bg}">~${md}</span>`;}
 function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
   const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}${s.asg&&empMap[s.asg]?`<span style="font-size:10px;color:var(--navy);background:var(--blue-soft);border-radius:5px;padding:1px 5px;margin-left:4px">${esc(empMap[s.asg])}</span>`:''}</label>`).join('')+`</div>`:'';
-  return `<div class="tdblock"><div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:15px;font-weight:700;color:var(--ink)">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span><button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
+  return `<div class="tdblock"><div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:15px;font-weight:700;color:var(--ink)">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span>${ck?'':`<button class="xmini" style="color:#E8A300" onclick="toggleSnooze('${t.id}')" title="내일로 미루기 (오늘 목록에서 숨김)">🌙내일로</button>`}<button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
 async function toggleTodo2(id,rt,checked){
   if(rt==='project'){const nd=!checked;await sb.from('todos').update({done:nd,done_date:nd?todayStr():null}).eq('id',id);}
   else if(checked){await sb.from('todo_completions').delete().eq('todo_id',id).eq('employee_id',me.id).eq('done_date',todayStr());}
@@ -1046,6 +1051,8 @@ async function viewTodo(){
   const formEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(formEmps);
   const items=sortByPrio(ts.defs.filter(applicableToday));
   const list=groupTodoByField(items,ts.compSet);
+  const snoozedT=sortByPrio(ts.defs.filter(t=>applicableTodayRaw(t)&&t.snooze_date===todayStr()&&!todoChecked(t,ts.compSet)));
+  const snoozedTHtml=snoozedT.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)"><div class="meta" style="font-weight:700;color:var(--muted);margin-bottom:4px">🌙 오늘 미룬 할 일 · ${snoozedT.length}</div>`+snoozedT.map(t=>`<div class="row" style="opacity:.65"><div class="ttl" style="font-size:14px">${esc(t.content)} <span class="tdtag">${todoTag(t)}</span></div><button class="xmini" style="color:var(--blue)" onclick="unsnooze('${t.id}')">오늘로 되돌리기</button></div>`).join('')+`</div>`:'';
   const byId={};ts.defs.forEach(t=>byId[t.id]=t);
   const since=new Date(Date.now()-14*86400000).toISOString().slice(0,10);
   const {data:recent}=await sb.from('todo_completions').select('todo_id,done_date').eq('employee_id',me.id).gte('done_date',since).order('done_date',{ascending:false});
@@ -1072,7 +1079,7 @@ async function viewTodo(){
   const upcoming=ts.defs.filter(t=>t.start_date&&t.start_date>todayStr()&&!(t.recur_type==='project'&&t.done));
   const upRows=upcoming.length?upcoming.map(t=>`<div class="row" style="cursor:pointer" onclick="openTodoModal('${t.id}')"><div><div class="ttl">${esc(t.content)}</div><div class="meta">${t.start_date}부터 시작 · ${todoTag(t)}</div></div><span class="tdtag">예정</span></div>`).join(''):'';
   return `<div class="grid2"><div>
-    <h2 class="sec">오늘</h2><div class="card" style="max-width:560px">${list}</div>
+    <h2 class="sec">오늘</h2><div class="card" style="max-width:560px">${list}${snoozedTHtml}</div>
     <h2 class="sec">TO DO LIST 추가</h2>${todoAddForm(formEmps)}</div>
     <div><h2 class="sec">정기 업무 (매일·매주·매월)</h2><div class="card">${recurBlock(ts.defs)}</div>${upRows?`<h2 class="sec">예정 (시작 전)</h2><div class="card">${upRows}</div>`:''}<h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>${adminBlock}`;
 }
