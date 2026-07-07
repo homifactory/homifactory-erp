@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: gtoken-cache 2026-07-07d -->
+<!-- build: home-nosnooze 2026-07-07e -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -656,7 +656,7 @@ async function viewHome(){
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>
     <div class="grid2" style="margin-top:18px">
-    <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}${snoozedHtml}</div></div>
+    <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}</div></div>
     <div><h2 class="sec">TO DO LIST 등록</h2>${todoAddForm(homeEmps)}</div>
     </div>
     <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
