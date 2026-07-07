@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: todo-snooze 2026-07-07a -->
+<!-- build: card-types 2026-07-07b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -729,7 +729,7 @@ function docFields(){
     <div class="field"><label>결제 수단</label><select id="dc-card"><option>법인카드</option><option>개인카드</option><option>계좌이체</option><option>미정</option></select></div>
     <div class="field"><label>사유</label><textarea id="dc-reason" rows="2"></textarea></div>`;
   return `<div class="field"><label>지출 항목</label><select id="dc-cat"><option>식대</option><option>교통비</option><option>장비 구입</option><option>광고비</option><option>기타</option></select></div>
-    <div class="field"><label>카드 구분</label><select id="dc-card"><option>법인카드</option><option>개인카드</option></select></div>
+    <div class="field"><label>카드 구분</label><select id="dc-card"><option>개인카드</option><option>법인카드</option><option>현금</option><option>기타</option></select></div>
     <div class="field two"><div><label>지출일</label><input type="date" id="dc-date" value="${todayStr()}"></div><div><label>금액(원)</label><input type="number" id="dc-amt" placeholder="0"></div></div>
     <div class="field"><label>사용처</label><input id="dc-vendor" placeholder="상호"></div>
     <div class="field"><label>내역</label><textarea id="dc-reason" rows="2"></textarea></div>
