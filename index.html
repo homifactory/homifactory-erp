@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: home-hidedone 2026-07-07c -->
+<!-- build: gtoken-cache 2026-07-07d -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -846,6 +846,9 @@ function startEvEdit(id){evEdit=id;render();}
 async function saveEvEdit(){const t=$('ev-title').value.trim();if(!t){toast('제목을 입력하세요');return;}const s=$('ev-date').value;const en=$('ev-end')?$('ev-end').value:'';const pd=[...document.querySelectorAll('.ev-pdept:checked')].map(c=>c.value);const pp=[...document.querySelectorAll('.ev-pperson:checked')].map(c=>c.value);const {error}=await sb.from('events').update({title:t,event_date:s,end_date:(en&&en>s)?en:null,event_type:$('ev-type').value,event_time:$('ev-time')?$('ev-time').value:null,part_depts:pd.length?pd:null,part_people:pp.length?pp:null}).eq('id',evEdit);if(error){toast('수정 실패: '+error.message);return;}evEdit=null;toast('일정이 수정되었습니다');render();}
 const GCAL='https://www.googleapis.com/calendar/v3/calendars/primary/events';
 window.gToken=window.gToken||null;
+function _gtokSave(tok){if(!tok)return;window.gToken=tok;try{localStorage.setItem('homi_gtok',JSON.stringify({t:tok,e:Date.now()+55*60*1000}));}catch(_){}}
+function _gtokLoad(){try{var x=JSON.parse(localStorage.getItem('homi_gtok')||'null');if(x&&x.t&&x.e>Date.now()){window.gToken=x.t;return true;}}catch(_){}return false;}
+function _gtokClear(){window.gToken=null;try{localStorage.removeItem('homi_gtok');}catch(_){}}
 function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
 function gcalRelogin(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});}
 function evToGcalBody(e){
@@ -894,7 +897,7 @@ async function gcalSync(){
     toast(`구글 캘린더 동기화 완료 · 내보냄 ${pushed} · 갱신 ${updated} · 가져옴 ${pulled}`);
     render();
   }catch(err){
-    if(err&&err.c401){if(confirm('구글 접근 토큰이 만료되었습니다. 다시 로그인(동의)할까요?'))gcalRelogin();}
+    if(err&&err.c401){_gtokClear();if(confirm('구글 접근 토큰이 만료되었습니다. 다시 로그인(동의)할까요?'))gcalRelogin();}
     else toast('동기화 오류: '+((err&&err.message)||err));
     const b=document.getElementById('gcal-btn');if(b){b.disabled=false;b.textContent='🔄 구글 캘린더 동기화';}
     return;
@@ -1428,8 +1431,8 @@ $('googleBtn').onclick=async()=>{
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('logout').onclick=async()=>{await sb.auth.signOut();showLogin();};
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='td-in')addTodo();});
-sb.auth.getSession().then(({data})=>{if(data.session){if(data.session.provider_token)window.gToken=data.session.provider_token;afterLogin(data.session.user);}});
-sb.auth.onAuthStateChange((ev,session)=>{if(session&&session.provider_token)window.gToken=session.provider_token;});
+sb.auth.getSession().then(({data})=>{if(data.session){if(data.session.provider_token)_gtokSave(data.session.provider_token);else _gtokLoad();afterLogin(data.session.user);}});
+sb.auth.onAuthStateChange((ev,session)=>{if(session&&session.provider_token)_gtokSave(session.provider_token);});
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
