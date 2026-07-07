@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: card-types 2026-07-07b -->
+<!-- build: home-hidedone 2026-07-07c -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -648,7 +648,7 @@ async function viewHome(){
   const snoozedToday=sortByPrio(ts.defs.filter(t=>applicableTodayRaw(t)&&t.snooze_date===todayStr()&&!todoChecked(t,ts.compSet)));
   const snoozedHtml=snoozedToday.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)"><div class="meta" style="font-weight:700;color:var(--muted);margin-bottom:4px">🌙 오늘 미룬 할 일 · ${snoozedToday.length}</div>`+snoozedToday.map(t=>`<div class="row" style="opacity:.65"><div class="ttl" style="font-size:14px">${esc(t.content)} <span class="tdtag">${todoTag(t)}</span></div><button class="xmini" style="color:var(--blue)" onclick="unsnooze('${t.id}')">오늘로 되돌리기</button></div>`).join('')+`</div>`:'';
   const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
-  const tl=groupTodoByField(todayItems,ts.compSet);
+  const tl=groupTodoByField(todayItems.filter(t=>!todoChecked(t,ts.compSet)),ts.compSet);
   const cal=await calendarBlock();
   const goals=await deptGoalsCard();
   return `${goals}<div class="grid2" style="align-items:stretch;margin-top:18px">
