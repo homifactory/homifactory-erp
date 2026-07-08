@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: home-nogoals 2026-07-08b -->
+<!-- build: proj-expense-detail 2026-07-08c -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -253,7 +253,7 @@ async function viewSettlement(){
   const cardOpts=cards.map(c=>`<option value="${esc(c.label)}">${esc(c.label)}</option>`).join('');
   const spentBy={};expenses.forEach(e=>{spentBy[e.project_code]=(spentBy[e.project_code]||0)+(+e.amount||0);});
   const projMap={};projects.forEach(p=>{projMap[p.code]=p;});
-  window._projCache=projMap;
+  window._projCache=projMap;window._allExp=expenses;
   const _d=new Date();const todayISO=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
   const QL='display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600';
   const FS='height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font-size:12.5px;background:#fff;color:var(--ink)';
@@ -272,6 +272,7 @@ async function viewSettlement(){
       <div style="height:9px;border-radius:6px;background:var(--bg);overflow:hidden;margin-top:5px"><div style="height:100%;width:${Math.min(pct,100)}%;background:${barc};transition:width .3s"></div></div>
       <div style="display:flex;justify-content:space-between;margin-top:9px;font-size:12.5px"><span class="meta">예상 마진 ${margin.toLocaleString()}원</span><span style="font-weight:800;color:${margin>=0?'#16A06B':'#D64545'}">${mpct!=null?'마진율 '+mpct+'%':'—'}</span></div>
       ${warn?'<div style="margin-top:8px;font-size:11.5px;color:#D64545;font-weight:800">⚠ 예산 집행률 85% 초과</div>':''}
+      <div style="margin-top:10px"><button onclick="openProjExp('${p.code}')" style="width:100%;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;color:var(--blue)">📋 지출 상세 보기</button></div>
     </div>`;
   }).join('')||'<div class="empty" style="flex:1">진행 중인 프로젝트가 없습니다. 우측 상단 ＋프로젝트로 등록하세요.</div>';
   const projChips=projects.map(p=>{const sc=p.status==='진행중'?'var(--blue)':(p.status==='정산완료'?'#16A06B':'#9AA3B2');return `<button onclick="openProjModal('${p.code}')" style="border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center"><span>${esc(p.name)}</span><span style="color:${sc};font-weight:700">${esc(p.status)}</span></button>`;}).join('');
@@ -326,7 +327,7 @@ async function viewSettlement(){
   const tableSection=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0 8px"><h2 class="sec" style="margin:0">지출 내역 <span class="meta" style="font-weight:600">(${rows.length}건 · ${filtTot.toLocaleString()}원)</span></h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${projFilt}<input type="date" value="${f.from}" onchange="setExf('from',this.value)" style="${FS}"><span class="meta">~</span><input type="date" value="${f.to}" onchange="setExf('to',this.value)" style="${FS}">${pmFilt}${(f.proj||f.from||f.to||f.pm)?`<button onclick="clearExf()" style="${FS};cursor:pointer;color:var(--muted)">필터해제</button>`:''}<button onclick="exportExpensesCSV()" style="height:34px;padding:0 14px;border:none;border-radius:8px;background:#16A06B;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">⬇ CSV 내보내기</button></div></div>
     <div class="card" style="padding:0;overflow:auto"><table class="dtable"><thead><tr><th>지출일</th><th>프로젝트</th><th>대분류/소분류</th><th>결제수단</th><th style="text-align:right">금액</th><th>적요</th><th></th></tr></thead><tbody>${tbody}</tbody><tfoot><tr><td colspan="4" style="text-align:right">합계</td><td style="text-align:right">${filtTot.toLocaleString()}원</td><td colspan="2"></td></tr></tfoot></table></div>`;
-  const modal=window._projModal?projModalHtml(window._projModal):'';
+  const modal=(window._projModal?projModalHtml(window._projModal):'')+(window._projExpModal?projExpModalHtml(window._projExpModal):'');
   return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px"><h2 class="sec" style="margin:0">실시간 프로젝트 P&L</h2><button onclick="openProjModal('')" style="height:38px;padding:0 16px;border:1px solid var(--line);background:#fff;border-radius:10px;font-weight:700;cursor:pointer">＋ 프로젝트</button></div>
   ${metrics}
   ${projChips?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${projChips}</div>`:''}
@@ -361,6 +362,27 @@ function exportExpensesCSV(){
 }
 function openProjModal(code){const c=(window._projCache||{})[code];window._projModal=c?Object.assign({},c):{status:'진행중'};render();}
 function closeProjModal(){window._projModal=null;render();}
+function openProjExp(code){window._projExpModal=code;render();}
+function closeProjExp(){window._projExpModal=null;render();}
+function projExpModalHtml(code){
+  const p=(window._projCache||{})[code]||{name:code,budget:0};
+  const exps=(window._allExp||[]).filter(e=>e.project_code===code).slice().sort((a,b)=>(b.spend_date||'').localeCompare(a.spend_date||''));
+  const total=exps.reduce((a,e)=>a+(+e.amount||0),0);const budget=+p.budget||0;
+  const catSum={};exps.forEach(e=>{const c=e.category||'기타';catSum[c]=(catSum[c]||0)+(+e.amount||0);});
+  const catRows=Object.entries(catSum).map(([c,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span class="meta">${esc(c)}</span><span style="font-weight:700">${v.toLocaleString()}원 <span class="meta" style="font-weight:500">· ${total>0?Math.round(v/total*100):0}%</span></span></div>`).join('')||'<div class="meta">지출 없음</div>';
+  const itemRows=exps.map(e=>`<tr><td style="white-space:nowrap">${(e.spend_date||'').slice(0,10)}</td><td><span style="font-weight:600">${esc(e.category||'-')}</span>${e.subcategory?` · ${esc(e.subcategory)}`:''}</td><td>${esc(e.payment_method||'')}${e.card_label?`<div class="meta">${esc(e.card_label)}</div>`:''}</td><td style="text-align:right;font-weight:700;white-space:nowrap">${(+e.amount||0).toLocaleString()}원</td><td>${esc(e.memo||'')}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">지출 내역이 없습니다</td></tr>';
+  return `<div class="modalbg" onclick="if(event.target===this)closeProjExp()"><div class="modalbox" style="max-width:780px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-weight:800;font-size:16px">${esc(p.name)} · 지출 상세</div><span class="tdtag">${esc(code)}</span></div>
+    <div style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap">
+      <div class="card" style="flex:1;min-width:110px"><div class="meta">총 지출 (${exps.length}건)</div><div style="font-size:18px;font-weight:800;color:#D64545">${total.toLocaleString()}원</div></div>
+      <div class="card" style="flex:1;min-width:110px"><div class="meta">예산</div><div style="font-size:18px;font-weight:800">${budget.toLocaleString()}원</div></div>
+      <div class="card" style="flex:1;min-width:110px"><div class="meta">잔여</div><div style="font-size:18px;font-weight:800;color:${budget-total>=0?'#16A06B':'#D64545'}">${(budget-total).toLocaleString()}원</div></div>
+    </div>
+    <div class="card" style="margin-bottom:10px"><div style="font-weight:700;margin-bottom:6px;font-size:13px">대분류별 집계</div>${catRows}</div>
+    <div class="card" style="padding:0;overflow:auto;max-height:320px"><table class="dtable"><thead><tr><th>지출일</th><th>대분류/소분류</th><th>결제수단</th><th style="text-align:right">금액</th><th>적요</th></tr></thead><tbody>${itemRows}</tbody></table></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button onclick="closeProjExp()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div>
+  </div></div>`;
+}
 function projModalHtml(p){
   const isNew=!p.id;
   const stOpts=['진행중','종료','정산완료'].map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('');
@@ -1392,7 +1414,7 @@ async function saveArchive(){
   if(error){toast('오류: '+error.message);return;}
   arcModal=false;arcEdit=null;toast('수정되었습니다');render();
 }
-async function openArchiveFile(path){const isHtml=/\.html?$/i.test(path);const w=isHtml?window.open('','_blank'):null;const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){if(w)w.close();toast('파일을 열 수 없습니다');return;}if(isHtml){try{const res=await fetch(data.signedUrl);const html=await res.text();const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);if(w){w.location.href=url;}else{window.open(url,'_blank');}setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){if(w){w.location.href=data.signedUrl;}else{window.open(data.signedUrl,'_blank');}}return;}window.open(data.signedUrl,'_blank');}
+async function openArchiveFile(path){const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){toast('파일을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
 async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
 
 /* ---------- 마이페이지 ---------- */
