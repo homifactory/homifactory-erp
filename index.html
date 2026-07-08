@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: leave-bulk-accrual 2026-07-08a -->
+<!-- build: home-nogoals 2026-07-08b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -657,8 +657,7 @@ async function viewHome(){
   const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
   const tl=groupTodoByField(todayItems.filter(t=>!todoChecked(t,ts.compSet)),ts.compSet);
   const cal=await calendarBlock();
-  const goals=await deptGoalsCard();
-  return `${goals}<div class="grid2" style="align-items:stretch;margin-top:18px">
+  return `<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>
