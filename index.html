@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: doc-edit-pending 2026-07-08e -->
+<!-- build: leave-used-auto 2026-07-09a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -1232,9 +1232,14 @@ async function viewTeam(){
   return `<h2 class="sec">오늘 팀 현황</h2><div class="mgrid"><div class="metric"><div class="v" style="color:var(--green)">${working}</div><div class="l">근무중</div></div><div class="metric"><div class="v" style="color:var(--blue)">${done}</div><div class="l">완료</div></div><div class="metric"><div class="v" style="color:var(--amber)">${absent<0?0:absent}</div><div class="l">미출근</div></div></div>
   <div class="grid2" style="margin-top:16px"><div><h2 class="sec">팀원 출근 현황</h2><div class="card">${team}</div></div><div><h2 class="sec">휴가 승인 대기 · ${(pend||[]).length}건</h2>${pl}</div></div>`;
 }
+async function leaveUnitDays(type,start,end){if(type==='반차')return 0.5;return dateRange(start,end||start).length;}
+async function bumpUsedDays(empId,type,start,end,sign){if(!empId)return;const yr=Number(String(start||'').slice(0,4))||new Date().getFullYear();const days=leaveUnitDays(type,start,end)*sign;const {data:b}=await sb.from('leave_balances').select('*').eq('employee_id',empId).eq('year',yr).maybeSingle();const cur=b?Number(b.used_days||0):0;const tot=b?Number(b.total_days||0):15;const nu=Math.max(0,Math.round((cur+days)*10)/10);await sb.from('leave_balances').upsert({employee_id:empId,year:yr,total_days:tot,used_days:nu});}
 async function decideLeave(id,ok,empId,type,start){
+  const {data:req}=await sb.from('leave_requests').select('*').eq('id',id).maybeSingle();
+  const already=req&&req.status==='승인';
   await sb.from('leave_requests').update({status:ok?'승인':'반려',approver_id:me.id,decided_at:new Date().toISOString()}).eq('id',id);
   if(ok){
+    if(req&&!already){await bumpUsedDays(req.employee_id,req.leave_type,req.start_date,req.end_date,1);}
     const {data:upd}=await sb.from('events').update({event_type:'휴가'}).eq('leave_id',id).select('id');
     if((!upd||!upd.length)&&empId){const {data:emp}=await sb.from('employees').select('name').eq('id',empId).maybeSingle();await sb.from('events').insert({title:(emp?emp.name:'')+' '+type,event_date:start,event_type:'휴가',employee_id:empId,created_by:me.id,leave_id:id});}
   }else{
