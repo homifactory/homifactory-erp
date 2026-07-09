@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: proj-exp+archiveviewer 2026-07-08d -->
+<!-- build: doc-edit-pending 2026-07-08e -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -745,25 +745,29 @@ async function saveAllLeaveBal(){const yr=new Date().getFullYear();const inputs=
 /* ---------- 전자결재 ---------- */
 function addVendor(){const w=document.getElementById('dc-vendors');if(!w)return;const r=document.createElement('div');r.className='vrow';r.style.cssText='display:flex;gap:6px;margin-bottom:6px';r.innerHTML='<input class="dc-vendor" placeholder="판매처 / 링크" style="flex:1"><button type="button" onclick="delVendor(this)" title="삭제" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:8px;padding:0 11px;cursor:pointer">✕</button>';w.appendChild(r);r.querySelector('.dc-vendor').focus();}
 function delVendor(b){const w=document.getElementById('dc-vendors');if(!w)return;const rows=w.querySelectorAll('.vrow');if(rows.length<=1){const inp=b.closest('.vrow').querySelector('.dc-vendor');if(inp)inp.value='';return;}b.closest('.vrow').remove();}
-function docFields(){
-  if(docType==='야근·주말·외근') return `<div class="field"><label>근무 구분</label><select id="dc-kind" onchange="var v=this.value;document.getElementById('dc-compwrap').style.display=(v==='주말 근무'||v==='공휴일 근무')?'':'none';"><option>평일 야근</option><option>주말 근무</option><option>공휴일 근무</option><option>외근</option></select></div>
-    <div class="field"><label>일자</label><input type="date" id="dc-date" value="${todayStr()}"></div>
-    <div class="field two"><div><label>시작</label><input type="time" id="dc-s" value="18:00"></div><div><label>종료</label><input type="time" id="dc-e" value="21:00"></div></div>
-    <div class="field" id="dc-compwrap" style="display:none"><label>대체 휴일 (다음 주) · 주말·공휴일 근무 시 함께 신청</label><input type="date" id="dc-comp" value="${plusDays(todayStr(),7)}"></div>
-    <div class="field"><label>행선지 (외근 시)</label><input id="dc-place" placeholder="외근 장소 / 행선지"></div>
-    <div class="field"><label>사유</label><textarea id="dc-reason" rows="2"></textarea></div>`;
-  if(docType==='구매 상신') return `<div class="field"><label>품목명</label><input id="dc-item" placeholder="구매 품목"></div>
-    <div class="field two"><div><label>수량</label><input type="number" id="dc-qty" value="1"></div><div><label>예상 금액(원)</label><input type="number" id="dc-amt" placeholder="0"></div></div>
-    <div class="field"><label>구매처 (희망) · 여러 개 추가 가능</label><div id="dc-vendors"><div class="vrow" style="display:flex;gap:6px;margin-bottom:6px"><input class="dc-vendor" placeholder="판매처 / 링크" style="flex:1"><button type="button" onclick="delVendor(this)" title="삭제" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:8px;padding:0 11px;cursor:pointer">✕</button></div></div><button type="button" onclick="addVendor()" style="border:1px dashed var(--line);background:#fff;color:var(--blue);border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:13px">+ 링크 추가</button></div>
-    <div class="field"><label>결제 수단</label><select id="dc-card"><option>법인카드</option><option>개인카드</option><option>계좌이체</option><option>미정</option></select></div>
-    <div class="field"><label>사유</label><textarea id="dc-reason" rows="2"></textarea></div>`;
-  return `<div class="field"><label>지출 항목</label><select id="dc-cat"><option>식대</option><option>교통비</option><option>장비 구입</option><option>광고비</option><option>기타</option></select></div>
-    <div class="field"><label>카드 구분</label><select id="dc-card"><option>개인카드</option><option>법인카드</option><option>현금</option><option>기타</option></select></div>
-    <div class="field two"><div><label>지출일</label><input type="date" id="dc-date" value="${todayStr()}"></div><div><label>금액(원)</label><input type="number" id="dc-amt" placeholder="0"></div></div>
-    <div class="field"><label>사용처</label><input id="dc-vendor" placeholder="상호"></div>
-    <div class="field"><label>내역</label><textarea id="dc-reason" rows="2"></textarea></div>
-    <div class="field"><label>영수증 첨부 (이미지/PDF)</label><input type="file" id="dc-receipt" accept="image/*,.pdf"></div>`;
+function docFields(pf){
+  pf=pf||{};
+  const V=(k,d)=>{const x=(pf[k]!=null&&pf[k]!=='')?pf[k]:(d!=null?d:'');return esc(String(x));};
+  const opt=(v,sel)=>`<option ${sel===v?'selected':''}>${v}</option>`;
+  if(docType==='야근·주말·외근'){const showComp=(pf.kind==='주말 근무'||pf.kind==='공휴일 근무');return `<div class="field"><label>근무 구분</label><select id="dc-kind" onchange="var v=this.value;document.getElementById('dc-compwrap').style.display=(v==='주말 근무'||v==='공휴일 근무')?'':'none';">${opt('평일 야근',pf.kind)}${opt('주말 근무',pf.kind)}${opt('공휴일 근무',pf.kind)}${opt('외근',pf.kind)}</select></div>
+    <div class="field"><label>일자</label><input type="date" id="dc-date" value="${V('date',todayStr())}"></div>
+    <div class="field two"><div><label>시작</label><input type="time" id="dc-s" value="${V('start','18:00')}"></div><div><label>종료</label><input type="time" id="dc-e" value="${V('end','21:00')}"></div></div>
+    <div class="field" id="dc-compwrap" style="display:${showComp?'':'none'}"><label>대체 휴일 (다음 주) · 주말·공휴일 근무 시 함께 신청</label><input type="date" id="dc-comp" value="${V('comp',plusDays(todayStr(),7))}"></div>
+    <div class="field"><label>행선지 (외근 시)</label><input id="dc-place" placeholder="외근 장소 / 행선지" value="${V('place')}"></div>
+    <div class="field"><label>사유</label><textarea id="dc-reason" rows="2">${V('reason')}</textarea></div>`;}
+  if(docType==='구매 상신'){const vlist=(pf.vendors&&pf.vendors.length)?pf.vendors:(pf.vendor?String(pf.vendor).split(' | '):[]);const vrows=(vlist.length?vlist:['']).map(v=>`<div class="vrow" style="display:flex;gap:6px;margin-bottom:6px"><input class="dc-vendor" placeholder="판매처 / 링크" style="flex:1" value="${esc(v)}"><button type="button" onclick="delVendor(this)" title="삭제" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:8px;padding:0 11px;cursor:pointer">✕</button></div>`).join('');return `<div class="field"><label>품목명</label><input id="dc-item" placeholder="구매 품목" value="${V('item')}"></div>
+    <div class="field two"><div><label>수량</label><input type="number" id="dc-qty" value="${V('qty',1)}"></div><div><label>예상 금액(원)</label><input type="number" id="dc-amt" placeholder="0" value="${V('amount')}"></div></div>
+    <div class="field"><label>구매처 (희망) · 여러 개 추가 가능</label><div id="dc-vendors">${vrows}</div><button type="button" onclick="addVendor()" style="border:1px dashed var(--line);background:#fff;color:var(--blue);border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:13px">+ 링크 추가</button></div>
+    <div class="field"><label>결제 수단</label><select id="dc-card">${opt('법인카드',pf.card)}${opt('개인카드',pf.card)}${opt('계좌이체',pf.card)}${opt('미정',pf.card)}</select></div>
+    <div class="field"><label>사유</label><textarea id="dc-reason" rows="2">${V('reason')}</textarea></div>`;}
+  return `<div class="field"><label>지출 항목</label><select id="dc-cat">${opt('식대',pf.cat)}${opt('교통비',pf.cat)}${opt('장비 구입',pf.cat)}${opt('광고비',pf.cat)}${opt('기타',pf.cat)}</select></div>
+    <div class="field"><label>카드 구분</label><select id="dc-card">${opt('개인카드',pf.card)}${opt('법인카드',pf.card)}${opt('현금',pf.card)}${opt('기타',pf.card)}</select></div>
+    <div class="field two"><div><label>지출일</label><input type="date" id="dc-date" value="${V('date',todayStr())}"></div><div><label>금액(원)</label><input type="number" id="dc-amt" placeholder="0" value="${V('amount')}"></div></div>
+    <div class="field"><label>사용처</label><input id="dc-vendor" placeholder="상호" value="${V('vendor')}"></div>
+    <div class="field"><label>내역</label><textarea id="dc-reason" rows="2">${V('reason')}</textarea></div>
+    <div class="field"><label>영수증 첨부 (이미지/PDF)${pf._hasReceipt?' · 기존 영수증 있음(새 파일 선택 시 교체)':''}</label><input type="file" id="dc-receipt" accept="image/*,.pdf"></div>`;
 }
+
 function docDetailRows(d){
   const p=d.payload||{};
   const f=(l,v)=>(v!==undefined&&v!==null&&v!=='')?`<div style="margin-top:10px"><div class="meta" style="font-weight:700;color:var(--ink)">${l}</div><div style="white-space:pre-wrap;margin-top:2px">${esc(String(v))}</div></div>`:'';
@@ -818,11 +822,15 @@ async function viewApproval(){
   if(docModal){
     const {data:dm}=await sb.from('documents').select('*,employees(name)').eq('id',docModal).maybeSingle();
     if(dm){const bcol=dm.status==='승인'?'b-green':dm.status==='대기'?'b-amber':'b-red';
-      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}${paidBlockHtml(dm)}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 라정선 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;margin-top:14px"><button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
+      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}${paidBlockHtml(dm)}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 라정선 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">${(dm.employee_id===me.id&&dm.status==='대기')?`<button onclick="editDoc('${dm.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer">✏️ 수정</button>`:''}<button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
   }
-  return `${admin}<div class="grid2"><div><h2 class="sec">결재 상신</h2><div class="card"><div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>${docFields()}
+  const _editing=!!window._editDocId;
+  const _seg=_editing?'':`<div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>`;
+  const _fields=docFields(_editing?window._editPf:undefined);
+  const _act=_editing?`<div style="display:flex;gap:8px"><button class="submit" style="flex:1" onclick="updateDoc()">수정 저장</button><button onclick="cancelEditDoc()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">취소</button></div>`:`<button class="submit" onclick="submitDoc()">상신하기</button>`;
+  return `${admin}<div class="grid2"><div><h2 class="sec">${_editing?'결재 수정':'결재 상신'}</h2><div class="card">${_seg}${_fields}
     <div class="field"><label>결재선</label><div style="font-size:13px;color:var(--muted)">${docType==='구매 상신'?'윤호성 (대표 승인) → 라정선 (경영지원 · 구매 진행)':'윤호성 · 배수빈 · 최성용 (대표 3인)'}</div></div>
-    <button class="submit" onclick="submitDoc()">상신하기</button></div></div>
+    ${_act}</div></div>
     <div><h2 class="sec">내 상신 내역</h2><div class="card">${list}</div></div></div>${docM}`;
 }
 async function submitDoc(){
@@ -844,6 +852,25 @@ async function submitDoc(){
   }
   toast('결재가 상신되었습니다');render();
   }finally{window._submittingDoc=false;}
+}
+async function editDoc(id){const {data:d}=await sb.from('documents').select('*').eq('id',id).maybeSingle();if(!d)return;if(d.employee_id!==me.id||d.status!=='대기'){toast('본인이 상신한 대기 문서만 수정할 수 있습니다');return;}docType=d.doc_type;const pf=Object.assign({},d.payload||{});pf._hasReceipt=!!d.receipt_path;window._editPf=pf;window._editDocId=id;docModal=null;render();}
+function cancelEditDoc(){window._editDocId=null;window._editPf=null;render();}
+async function updateDoc(){
+  const id=window._editDocId;if(!id)return;
+  if(window._savingDoc)return;window._savingDoc=true;
+  try{
+  let summary='',payload={},newReceipt=null;
+  if(docType==='야근·주말·외근'){const k=$('dc-kind').value,d=$('dc-date').value,st=$('dc-s').value,e=$('dc-e').value,place=$('dc-place')?$('dc-place').value:'';const comp=((k==='주말 근무'||k==='공휴일 근무')&&$('dc-comp'))?$('dc-comp').value:'';summary=`${k} ${d} ${st}~${e}${place?' · '+place:''}${comp?' · 대체휴일 '+comp:''}`;payload={kind:k,date:d,start:st,end:e,place,comp,reason:$('dc-reason').value};}
+  else if(docType==='구매 상신'){const item=$('dc-item').value,qty=Number($('dc-qty').value||1),amt=Number($('dc-amt').value||0),card=$('dc-card').value;const vendors=Array.from(document.querySelectorAll('.dc-vendor')).map(el=>el.value.trim()).filter(Boolean);const v=vendors.join(' | ');summary=`${item} ${qty}개 · ${amt.toLocaleString()}원 [${card}]`;payload={item,qty,amount:amt,vendor:v,vendors,card,reason:$('dc-reason').value};}
+  else{const c=$('dc-cat').value,card=$('dc-card').value,d=$('dc-date').value,amt=Number($('dc-amt').value||0),v=$('dc-vendor').value;summary=`[${card}] ${c} ${amt.toLocaleString()}원 · ${v||'-'}`;payload={cat:c,card,date:d,amount:amt,vendor:v,reason:$('dc-reason').value};
+    const fi=$('dc-receipt');
+    if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('receipts').upload(path,f,{contentType:f.type});if(up.error){toast('영수증 업로드 실패: '+up.error.message);return;}newReceipt=path;}
+  }
+  const upd={summary,payload,card_type:payload.card||null};if(newReceipt)upd.receipt_path=newReceipt;
+  const {error}=await sb.from('documents').update(upd).eq('id',id).eq('employee_id',me.id).eq('status','대기');
+  if(error){toast('수정 실패: '+error.message);return;}
+  window._editDocId=null;window._editPf=null;toast('수정되었습니다');render();
+  }finally{window._savingDoc=false;}
 }
 async function openReceipt(path){const {data,error}=await sb.storage.from('receipts').createSignedUrl(path,180);if(error||!data){toast('영수증을 열 수 없습니다');return;}window.open(data.signedUrl,'_blank');}
 async function sendMail(to,subject,body){
