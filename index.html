@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: leave-used-auto 2026-07-09a -->
+<!-- build: leave-revert 2026-07-09b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -715,7 +715,7 @@ async function viewLeave(){
     const lrows=(emps||[]).map(e=>{const bb=bmap[e.id];const tt=bb?bb.total_days:15;const uu=bb?bb.used_days:0;return `<div class="row"><div style="flex:1"><div class="ttl">${esc(e.name)}</div><div class="meta">${esc(e.dept||'')} · 잔여 ${tt-uu}일</div></div><div style="display:flex;gap:6px;align-items:center"><label style="font-size:12px;color:var(--muted)">총</label><input id="lb-t-${e.id}" type="number" value="${tt}" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"><label style="font-size:12px;color:var(--muted)">사용</label><input id="lb-u-${e.id}" type="number" value="${uu}" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"><button class="ap" onclick="saveLeaveBal('${e.id}')">저장</button></div></div>`;}).join('');
     const nameById={};(emps||[]).forEach(e=>nameById[e.id]=e.name);
     const {data:allreq}=await sb.from('leave_requests').select('*').order('created_at',{ascending:false});
-    const arows=(allreq||[]).map(l=>{const bb2=l.status==='승인'?'b-green':l.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(nameById[l.employee_id]||'')} · ${esc(l.leave_type)}</div><div class="meta">${l.start_date}${l.end_date!==l.start_date?' ~ '+l.end_date:''} · ${esc(l.reason||'')}</div></div><span class="badge2 ${bb2}">${l.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
+    const arows=(allreq||[]).map(l=>{const bb2=l.status==='승인'?'b-green':l.status==='대기'?'b-amber':'b-red';return `<div class="row"><div><div class="ttl">${esc(nameById[l.employee_id]||'')} · ${esc(l.leave_type)}</div><div class="meta">${l.start_date}${l.end_date!==l.start_date?' ~ '+l.end_date:''} · ${esc(l.reason||'')}</div></div><div style="display:flex;align-items:center;gap:8px"><span class="badge2 ${bb2}">${l.status}</span>${l.status==='승인'?`<button onclick="if(confirm('이 휴가 승인을 반려로 되돌릴까요? 사용 연차가 복구됩니다.'))decideLeave('${l.id}',false,'${l.employee_id}','${esc(l.leave_type)}','${l.start_date}')" style="border:1px solid var(--line);background:#fff;color:#e02424;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer">반려로 변경</button>`:''}</div></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
     leaveAdmin=`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;flex-wrap:wrap;gap:8px"><h2 class="sec" style="margin:0">직원 연차 관리 (${yr})</h2><div style="display:flex;align-items:center;gap:10px"><span class="meta">🗓️ 매월 1일 +1 자동 적립</span><button class="ap" onclick="saveAllLeaveBal()">💾 일괄 저장</button></div></div><div class="card">${lrows}</div><h2 class="sec" style="margin-top:20px">전체 직원 휴가 내역</h2><div class="card">${arows}</div>`;
   }
   return `<div class="card" style="display:flex;align-items:center;gap:16px;margin-bottom:16px"><div style="font-size:30px;font-weight:800;color:var(--blue)">${rem}<span style="font-size:14px;color:var(--muted);font-weight:600">일</span></div><div><div style="font-weight:700">잔여 연차 ${rem}일</div><div style="color:var(--muted);font-size:13px">올해 총 ${total}일 중 ${used}일 사용</div></div></div>
@@ -1243,9 +1243,10 @@ async function decideLeave(id,ok,empId,type,start){
     const {data:upd}=await sb.from('events').update({event_type:'휴가'}).eq('leave_id',id).select('id');
     if((!upd||!upd.length)&&empId){const {data:emp}=await sb.from('employees').select('name').eq('id',empId).maybeSingle();await sb.from('events').insert({title:(emp?emp.name:'')+' '+type,event_date:start,event_type:'휴가',employee_id:empId,created_by:me.id,leave_id:id});}
   }else{
+    if(already){await bumpUsedDays(req.employee_id,req.leave_type,req.start_date,req.end_date,-1);}
     await sb.from('events').delete().eq('leave_id',id);
   }
-  toast(ok?'승인 · 캘린더 반영':'반려 · 캘린더에서 제거');await refreshBadges();render();
+  toast(ok?'승인 · 캘린더 반영':(already?'반려 · 사용 연차 복구':'반려 · 캘린더에서 제거'));await refreshBadges();render();
 }
 
 /* ---------- 회의록 ---------- */
