@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: approval-filter 2026-07-14a -->
+<!-- build: top-rank 2026-07-14b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -1054,9 +1054,13 @@ function sortByPrio(a){const r={'최상':-1,'높음':0,'보통':1,'낮음':2};re
 function prioPill(t){const p=t.priority||'보통';const m={'최상':'#8A1C1C','높음':'#D64545','보통':'#2E75B6','낮음':'#8A93A2'};return `<span class="tdtag" style="color:#fff;background:${m[p]||'#8A93A2'}">${p}</span>`;}
 function fieldPill(t){return t.field?`<span class="tdtag" style="color:var(--navy);background:var(--blue-soft)">${esc(t.field)}</span>`:'';}
 function dueTag(t,ck){if(!t.due_date)return '';const today=todayStr();const overdue=t.due_date<today&&!ck;const col=overdue?'var(--red)':(t.due_date===today?'var(--amber)':'var(--muted)');const bg=overdue?'var(--red-soft)':(t.due_date===today?'var(--amber-soft)':'var(--bg)');const md=t.due_date.slice(5).replace('-','/');return `<span class="tdtag" style="color:${col};background:${bg}">~${md}</span>`;}
-function todoRow2(t,compSet){const ck=todoChecked(t,compSet);
+function todoRow2(t,compSet,n,total){const ck=todoChecked(t,compSet);
+  const _bs='border:1px solid var(--line);background:#fff;color:#8A1C1C;border-radius:5px;width:19px;height:15px;line-height:1;padding:0;font-size:9px;cursor:pointer';
+  const _bsd='border:1px solid var(--line);background:#F3F4F6;color:#C9CDD4;border-radius:5px;width:19px;height:15px;line-height:1;padding:0;font-size:9px;cursor:default';
+  const rk=n?`<span style="min-width:20px;text-align:right;font-size:14px;font-weight:800;color:#8A1C1C;flex-shrink:0">${n}.</span>`:'';
+  const mv=n?`<span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:2px;flex-shrink:0"><button title="위로" ${n===1?'disabled':''} style="${n===1?_bsd:_bs}" onclick="event.stopPropagation();moveTopTodo('${t.id}',-1)">\u25B2</button><button title="아래로" ${n===total?'disabled':''} style="${n===total?_bsd:_bs}" onclick="event.stopPropagation();moveTopTodo('${t.id}',1)">\u25BC</button></span>`:'';
   const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}${s.asg&&empMap[s.asg]?`<span style="font-size:10px;color:var(--navy);background:var(--blue-soft);border-radius:5px;padding:1px 5px;margin-left:4px">${esc(empMap[s.asg])}</span>`:''}</label>`).join('')+`</div>`:'';
-  return `<div class="tdblock"><div class="tditem ${ck?'done':''}"><input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:15px;font-weight:700;color:var(--ink)">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span>${ck?'':`<button class="xmini" style="color:#E8A300" onclick="toggleSnooze('${t.id}')" title="내일로 미루기 (오늘 목록에서 숨김)">🌙내일로</button>`}<button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
+  return `<div class="tdblock"><div class="tditem ${ck?'done':''}">${rk}<input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;cursor:pointer" onclick="openTodoModal('${t.id}')"><span style="font-size:15px;font-weight:700;color:var(--ink)">${esc(t.content)}</span>${t.note?`<div style="margin-top:3px;white-space:pre-wrap;font-size:11px;line-height:1.35;color:#9AA3B2">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span>${ck?'':`<button class="xmini" style="color:#E8A300" onclick="toggleSnooze('${t.id}')" title="내일로 미루기 (오늘 목록에서 숨김)">🌙내일로</button>`}${mv}<button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
 async function toggleTodo2(id,rt,checked){
   if(rt==='project'){const nd=!checked;await sb.from('todos').update({done:nd,done_date:nd?todayStr():null}).eq('id',id);}
   else if(checked){await sb.from('todo_completions').delete().eq('todo_id',id).eq('employee_id',me.id).eq('done_date',todayStr());}
@@ -1103,14 +1107,28 @@ function setModalSubDue(i,v){modalSubs[i].due=v||'';persistModalSubs();}
 function setModalSubNote(i,v){modalSubs[i].note=v||'';persistModalSubs();}
 function removeModalSub(i){modalSubs.splice(i,1);refreshModalSubs();persistModalSubs();}
 async function toggleRowSub(id,i){const {data:t}=await sb.from('todos').select('subtasks').eq('id',id).maybeSingle();if(!t)return;const subs=Array.isArray(t.subtasks)?t.subtasks:[];if(!subs[i])return;subs[i].d=!subs[i].d;await sb.from('todos').update({subtasks:subs}).eq('id',id);render();}
+async function moveTopTodo(id,dir){
+  const ids=(window._topIds||[]).slice();
+  const i=ids.indexOf(id); if(i===-1)return;
+  const j=i+dir; if(j<0||j>=ids.length)return;
+  ids[i]=ids[j]; ids[j]=id;
+  window._topIds=ids;
+  for(let k=0;k<ids.length;k++){ await sb.from('todos').update({top_rank:k+1}).eq('id',ids[k]); }
+  render();
+}
 function groupTodoByField(items,compSet){
   if(!items.length)return '<div class="empty">오늘 TO DO LIST가 없습니다</div>';
   const order=['경영/전략','틱톡','마케팅','매니지먼트','그룹라이브','미지정'];
   const fc={'틱톡':'#111','그룹라이브':'#7F77DD','마케팅':'#D85A30','매니지먼트':'#16A06B','경영/전략':'#2F6BE4','미지정':'#8A93A2'};
-  const top=items.filter(t=>t.priority==='최상');
+  const top=items.filter(t=>t.priority==='최상').slice().sort((a,b)=>{
+    const ra=(a.top_rank==null?9999:Number(a.top_rank)), rb=(b.top_rank==null?9999:Number(b.top_rank));
+    if(ra!==rb)return ra-rb;
+    return String(a.created_at||'').localeCompare(String(b.created_at||''));
+  });
+  window._topIds=top.map(t=>t.id);
   const rest=items.filter(t=>t.priority!=='최상');
   let out='';
-  if(top.length){out+=`<div class="fldgrp"><div class="fldhd" style="--fc:#8A1C1C"><span style="width:4px;height:13px;border-radius:3px;background:#8A1C1C;display:inline-block"></span>🔥 최우선<span class="cnt">${top.length}</span></div>${top.map(t=>todoRow2(t,compSet)).join('')}</div>`;}
+  if(top.length){out+=`<div class="fldgrp"><div class="fldhd" style="--fc:#8A1C1C"><span style="width:4px;height:13px;border-radius:3px;background:#8A1C1C;display:inline-block"></span>🔥 최우선<span class="cnt">${top.length}</span></div>${top.map((t,i)=>todoRow2(t,compSet,i+1,top.length)).join('')}</div>`;}
   const g={};rest.forEach(t=>{const f=t.field||'미지정';(g[f]=g[f]||[]).push(t);});
   const keys=[...order.filter(k=>g[k]),...Object.keys(g).filter(k=>!order.includes(k))];
   out+=keys.map(k=>`<div class="fldgrp"><div class="fldhd" style="--fc:${fc[k]||'#8A93A2'}"><span style="width:4px;height:13px;border-radius:3px;background:${fc[k]||'#8A93A2'};display:inline-block"></span>${esc(k)}<span class="cnt">${g[k].length}</span></div>${g[k].map(t=>todoRow2(t,compSet)).join('')}</div>`).join('');
