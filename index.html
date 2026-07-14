@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: grid-even 2026-07-14d -->
+<!-- build: pomo-focus-top 2026-07-14e -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -610,7 +610,18 @@ function clockCard(a){
 window.pomo=window.pomo||{phase:'work',left:25*60,running:false,work:25,brk:5,done:0,focus1:null,focus2:null};
 function pomoFmt(s){s=Math.max(0,s|0);const m=Math.floor(s/60),x=s%60;return String(m).padStart(2,'0')+':'+String(x).padStart(2,'0');}
 function pomoBeep(){try{const ac=new (window.AudioContext||window.webkitAudioContext)();if(ac.resume)ac.resume();const beep=(t,f)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.3,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);o.start(t);o.stop(t+0.36);};const n=ac.currentTime;beep(n,880);beep(n+0.45,880);beep(n+0.9,1175);setTimeout(()=>ac.close(),1700);}catch(e){}}
-function pomoCard(todos){const p=window.pomo;const fopt=(sel)=>`<option value="">— 없음 —</option>`+(todos||[]).map(t=>`<option value="${t.id}" ${sel===t.id?'selected':''}>${esc(t.content)}</option>`).join('');const C=2*Math.PI*52;const total=(p.phase==='work'?p.work:p.brk)*60;const off=C*(1-(total?p.left/total:0));const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const setv=p.work+'/'+p.brk;
+function pomoCard(todos){const p=window.pomo;
+  const fopt=(sel)=>{
+    const list=(todos||[]).slice();
+    const _rk=t=>(t.top_rank==null?9999:Number(t.top_rank));
+    const _top=list.filter(t=>t.priority==='최상').sort((a,b)=>_rk(a)-_rk(b)||String(a.created_at||'').localeCompare(String(b.created_at||'')));
+    const _rest=list.filter(t=>t.priority!=='최상');
+    const _o=(t,pre)=>`<option value="${t.id}" ${sel===t.id?'selected':''}>${pre||''}${esc(t.content)}</option>`;
+    let h=`<option value="">— 없음 —</option>`;
+    if(_top.length)h+=`<optgroup label="🔥 최우선">${_top.map((t,i)=>_o(t,(i+1)+'. ')).join('')}</optgroup>`;
+    if(_rest.length)h+=`<optgroup label="그 외">${_rest.map(t=>_o(t)).join('')}</optgroup>`;
+    return h;
+  };const C=2*Math.PI*52;const total=(p.phase==='work'?p.work:p.brk)*60;const off=C*(1-(total?p.left/total:0));const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const setv=p.work+'/'+p.brk;
   const opt=(w,b,l)=>`<option value="${w}/${b}" ${setv===w+'/'+b?'selected':''}>${l}</option>`;
   return `<div class="card" id="pomo-card" style="text-align:center;border:1px solid ${col}33;height:100%;display:flex;flex-direction:column;justify-content:center">
     <div style="font-weight:700;font-size:13px;color:var(--muted);margin-bottom:8px">뽀모도로 · <span id="pomo-phase" style="color:${col}">${p.phase==='work'?'집중':'휴식'}</span></div>
