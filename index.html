@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: leave-revert 2026-07-09b -->
+<!-- build: approval-filter 2026-07-14a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -178,6 +178,7 @@ const EVC=t=>({'내부 회의':'#C98A12','외부 미팅':'#2E75B6','신규 크�
 let me=null, tab='home';
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
 let docType='야근·주말·외근', leaveType='연차';
+let apf={emp:'',type:'',status:'',paid:'',q:''};
 let pendCounts={leave:0,doc:0};
 let meetSel=null;
 let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};let driveFolder='';let gdStack=[];
@@ -578,6 +579,7 @@ async function render(){
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
   try{ $('view').innerHTML=await (VIEWS[tab]||viewHome)(); }
   catch(e){ $('view').innerHTML='<div class="card"><div class="empty" style="color:var(--red)">오류: '+esc(e.message)+'</div></div>'; }
+  if(window._afFocus){const q=document.getElementById('af-q');if(q){q.focus();const v=q.value;q.value='';q.value=v;}window._afFocus=0;}
 }
 
 /* ---------- 근태 공통 ---------- */
@@ -815,8 +817,30 @@ async function viewApproval(){
       cardsBlock=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div>`;
     }
     const {data:alldocs}=await sb.from('documents').select('*,employees(name)').order('created_at',{ascending:false});
-    const allrows=(alldocs||[]).map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row" onclick="docModal='${d.id}';render()" style="cursor:pointer"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${paidTag(d)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="event.stopPropagation();openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
-    admin=`${cardsBlock}<h2 class="sec">전체 결재 내역</h2><div class="card">${allrows}</div><div style="height:8px"></div>`;
+    const _nm=d=>(d.employees&&d.employees.name)?d.employees.name:'';
+    const empNames=[...new Set((alldocs||[]).map(_nm).filter(Boolean))].sort();
+    const fdocs=(alldocs||[]).filter(d=>{
+      if(apf.emp&&_nm(d)!==apf.emp)return false;
+      if(apf.type&&d.doc_type!==apf.type)return false;
+      if(apf.status&&d.status!==apf.status)return false;
+      if(apf.paid==='Y'&&!d.paid)return false;
+      if(apf.paid==='N'&&d.paid)return false;
+      if(apf.q){const q=apf.q.toLowerCase();const hay=(_nm(d)+' '+(d.doc_type||'')+' '+(d.summary||'')+' '+(d.card_type||'')+' '+(d.status||'')).toLowerCase();if(hay.indexOf(q)===-1)return false;}
+      return true;
+    });
+    const _fs='border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;color:var(--ink)';
+    const _op=(v,cur,label)=>`<option value="${esc(v)}" ${cur===v?'selected':''}>${esc(label!=null?label:v)}</option>`;
+    const _fbar=`<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px;margin-bottom:10px">
+      <select style="${_fs}" onchange="apf.emp=this.value;render()">${_op('',apf.emp,'직원 전체')}${empNames.map(n=>_op(n,apf.emp)).join('')}</select>
+      <select style="${_fs}" onchange="apf.type=this.value;render()">${_op('',apf.type,'종류 전체')}${['야근·주말·외근','지출 결의','구매 상신'].map(t=>_op(t,apf.type)).join('')}</select>
+      <select style="${_fs}" onchange="apf.status=this.value;render()">${_op('',apf.status,'상태 전체')}${['대기','승인','반려'].map(t=>_op(t,apf.status)).join('')}</select>
+      <select style="${_fs}" onchange="apf.paid=this.value;render()">${_op('',apf.paid,'송금·구매 전체')}${_op('Y',apf.paid,'완료')}${_op('N',apf.paid,'미완료')}</select>
+      <input id="af-q" value="${esc(apf.q)}" placeholder="검색 (이름·내용·금액)" style="${_fs};flex:1;min-width:150px" oninput="apf.q=this.value;clearTimeout(window._aft);window._aft=setTimeout(function(){window._afFocus=1;render();},300)">
+      <button onclick="apf={emp:'',type:'',status:'',paid:'',q:''};render()" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer">초기화</button>
+      <span class="meta" style="margin-left:auto;font-weight:700">${fdocs.length}건</span>
+    </div>`;
+    const allrows=fdocs.map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row" onclick="docModal='${d.id}';render()" style="cursor:pointer"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${paidTag(d)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="event.stopPropagation();openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
+    admin=`${cardsBlock}<h2 class="sec">전체 결재 내역</h2>${_fbar}<div class="card">${allrows}</div><div style="height:8px"></div>`;
   }
   let docM='';
   if(docModal){
