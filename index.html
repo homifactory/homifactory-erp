@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: field-personal 2026-07-24b -->
+<!-- build: doc-revert 2026-07-24c -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -860,7 +860,7 @@ async function viewApproval(){
   if(docModal){
     const {data:dm}=await sb.from('documents').select('*,employees(name)').eq('id',docModal).maybeSingle();
     if(dm){const bcol=dm.status==='승인'?'b-green':dm.status==='대기'?'b-amber':'b-red';
-      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}${paidBlockHtml(dm)}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 라정선 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">${(dm.employee_id===me.id&&dm.status==='대기')?`<button onclick="editDoc('${dm.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer">✏️ 수정</button>`:''}<button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
+      docM=`<div class="modalbg" onclick="if(event.target===this){docModal=null;render()}"><div class="modalbox"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:16px">${esc(dm.doc_type)}</div><span class="badge2 ${bcol}">${dm.status}</span></div><div class="meta" style="margin-top:4px">${esc(dm.employees?dm.employees.name:'')} · ${(dm.created_at||'').slice(0,16).replace('T',' ')}</div>${docDetailRows(dm)}${dm.receipt_path?`<div style="margin-top:12px"><button class="xmini" style="color:var(--blue)" onclick="openReceipt('${dm.receipt_path}')">📎 영수증 보기</button></div>`:''}${paidBlockHtml(dm)}<div style="margin-top:12px"><div class="meta" style="font-weight:700;color:var(--ink)">결재선</div><div class="meta">${dm.doc_type==='구매 상신'?'윤호성 (대표 승인) → 라정선 (구매)':'윤호성 · 배수빈 · 최성용'}</div></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">${(dm.employee_id===me.id&&dm.status==='대기')?`<button onclick="editDoc('${dm.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer">✏️ 수정</button>`:''}${(canFin()&&dm.status==='승인')?`<button onclick="revertDoc('${dm.id}')" style="background:#fff;border:1px solid var(--line);color:#e02424;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer">반려로 변경</button>`:''}<button onclick="docModal=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">닫기</button></div></div></div>`;}
   }
   const _editing=!!window._editDocId;
   const _seg=_editing?'':`<div class="field"><label>결재 종류</label><div class="seg">${seg}</div></div>`;
@@ -932,6 +932,18 @@ async function decideDoc(id,ok){
     toast(sent?'승인 완료 · support@ 메일 발송됨':'승인 완료(메일 발송 실패 · 권한 확인 필요)');
   }else{toast(ok?'승인 완료':'반려 완료');}
   await refreshBadges();render();
+}
+async function revertDoc(id){
+  const {data:d}=await sb.from('documents').select('doc_type,summary,status').eq('id',id).maybeSingle();
+  if(!d)return;
+  if(d.status!=='승인'){toast('승인된 결재만 반려로 변경할 수 있습니다');return;}
+  if(!confirm('이 결재를 반려로 변경할까요?'+(d.doc_type==='구매 상신'?'\n(라정선 구매 요청 항목도 함께 제거됩니다)':'')))return;
+  await sb.from('documents').update({status:'반려'}).eq('id',id);
+  if(d.doc_type==='구매 상신'&&d.summary){
+    const {data:pj}=await sb.from('employees').select('id').eq('name','라정선').maybeSingle();
+    if(pj){await sb.from('todos').delete().eq('employee_id',pj.id).eq('content','[구매 요청] '+d.summary);}
+  }
+  docModal=null;toast('반려로 변경됨');await refreshBadges();render();
 }
 
 /* ---------- 캘린더 ---------- */
