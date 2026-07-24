@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: pomo-focus4 2026-07-22a -->
+<!-- build: private-todo 2026-07-23a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -1074,7 +1074,7 @@ function todoRow2(t,compSet,n,total){const ck=todoChecked(t,compSet);
   const rk=n?`<span style="min-width:17px;text-align:right;font-size:13px;font-weight:800;color:#8A1C1C;flex-shrink:0">${n}.</span>`:'';
   const mv=n?`<span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:2px;flex-shrink:0"><button title="위로" ${n===1?'disabled':''} style="${n===1?_bsd:_bs}" onclick="event.stopPropagation();moveTopTodo('${t.id}',-1)">\u25B2</button><button title="아래로" ${n===total?'disabled':''} style="${n===total?_bsd:_bs}" onclick="event.stopPropagation();moveTopTodo('${t.id}',1)">\u25BC</button></span>`:'';
   const subChk=(t.subtasks&&t.subtasks.length)?`<div style="margin:1px 0 8px 30px;display:flex;flex-direction:column;gap:3px">`+t.subtasks.map((s,i)=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280;cursor:pointer"><input type="checkbox" ${s.d?'checked':''} onclick="event.stopPropagation();toggleRowSub('${t.id}',${i})" style="width:15px;height:15px;flex:0 0 auto;accent-color:var(--blue)"><span style="${s.d?'text-decoration:line-through;color:#AAB2C0':''}">${esc(s.t)}</span>${s.due?`<span style="font-size:10.5px;color:#D85A30;margin-left:2px">\ud83d\udcc5 ${s.due.slice(5)}</span>`:''}${s.note?`<span style="font-size:10.5px;color:#9AA3B2;margin-left:4px">· ${esc(s.note)}</span>`:''}${s.asg&&empMap[s.asg]?`<span style="font-size:10px;color:var(--navy);background:var(--blue-soft);border-radius:5px;padding:1px 5px;margin-left:4px">${esc(empMap[s.asg])}</span>`:''}</label>`).join('')+`</div>`:'';
-  return `<div class="tdblock"><div class="tditem ${ck?'done':''}">${rk}<input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;min-width:0;cursor:pointer" onclick="openTodoModal('${t.id}')"><span title="${esc(t.content)}" style="display:block;font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.content)}</span>${t.note?`<div title="${esc(t.note)}" style="margin-top:3px;font-size:11px;line-height:1.35;color:#9AA3B2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span>${ck?'':`<button class="xmini" style="color:#E8A300" onclick="toggleSnooze('${t.id}')" title="내일로 미루기 (오늘 목록에서 숨김)">🌙내일로</button>`}${mv}<button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
+  return `<div class="tdblock"><div class="tditem ${ck?'done':''}">${rk}<input type="checkbox" ${ck?'checked':''} onclick="toggleTodo2('${t.id}','${t.recur_type}',${ck})"><div style="flex:1;min-width:0;cursor:pointer" onclick="openTodoModal('${t.id}')"><span title="${esc(t.content)}" style="display:block;font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.is_private?'🔒 ':''}${esc(t.content)}</span>${t.note?`<div title="${esc(t.note)}" style="margin-top:3px;font-size:11px;line-height:1.35;color:#9AA3B2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.note)}</div>`:''}</div>${prioPill(t)}${fieldPill(t)}${dueTag(t,ck)}${(t.subtasks&&t.subtasks.length)?`<span class="tdtag">☑ ${t.subtasks.filter(s=>s.d).length}/${t.subtasks.length}</span>`:''}<span class="tdtag">${todoTag(t)}</span>${ck?'':`<button class="xmini" style="color:#E8A300" onclick="toggleSnooze('${t.id}')" title="내일로 미루기 (오늘 목록에서 숨김)">🌙내일로</button>`}${mv}<button class="xmini" onclick="delTodo('${t.id}')">×</button></div>${subChk}</div>`;}
 async function toggleTodo2(id,rt,checked){
   if(rt==='project'){const nd=!checked;await sb.from('todos').update({done:nd,done_date:nd?todayStr():null}).eq('id',id);}
   else if(checked){await sb.from('todo_completions').delete().eq('todo_id',id).eq('employee_id',me.id).eq('done_date',todayStr());}
@@ -1093,6 +1093,7 @@ function todoAddForm(emps){
       <div class="field"><label>마감일 (선택)</label><input type="date" id="td-due"></div>
       <div class="field"><label>비고</label><textarea id="td-note" rows="3" placeholder="자세한 내용을 입력하세요 (선택)"></textarea></div>
       <div style="margin-top:13px"><label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600">하위 업무 (선택)</label><div id="td-sublist">${draftSubListHtml()}</div><div style="display:flex;gap:6px;margin-top:6px"><input id="td-sub-in" placeholder="하위 업무 입력 후 추가" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();addDraftSub()}" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;flex:1"><input type="date" id="td-sub-due" style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px;font-family:inherit"><select id="td-sub-asg" style="border:1px solid var(--line);border-radius:10px;padding:9px 8px;font-size:13px;font-family:inherit">${asgOpts('')}</select><button type="button" onclick="addDraftSub()" style="background:#EEF1F6;border:1px solid var(--line);border-radius:9px;padding:0 14px;font-weight:600;cursor:pointer;white-space:nowrap">추가</button></div></div>
+      <label style="display:flex;align-items:center;gap:8px;margin:6px 0 12px;font-size:13px;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="td-private" style="width:16px;height:16px">🔒 나만 보기 (비공개 · 다른 사람에게 안 보임)</label>
       <button class="submit" onclick="addTodo()">추가</button>
     </div>`;
 }
@@ -1182,7 +1183,7 @@ async function viewTodo(){
     const {data:allTodos}=await sb.from('todos').select('*');
     const {data:allComps}=await sb.from('todo_completions').select('todo_id').eq('done_date',todayStr());
     const cset=new Set((allComps||[]).map(c=>c.todo_id));
-    const byEmp={};(allTodos||[]).forEach(t=>{(byEmp[t.employee_id]=byEmp[t.employee_id]||[]).push(t);});
+    const byEmp={};(allTodos||[]).filter(t=>!(t.is_private&&t.employee_id!==me.id)).forEach(t=>{(byEmp[t.employee_id]=byEmp[t.employee_id]||[]).push(t);});
     const cards=(emps||[]).filter(e=>byEmp[e.id]&&byEmp[e.id].length).map(e=>{
       const its=sortByPrio((byEmp[e.id]||[]).filter(applicableToday));
       const doneN=its.filter(t=>todoChecked(t,cset)).length;
@@ -1209,7 +1210,8 @@ async function addTodo(){
   const start=$('td-start')?$('td-start').value:'';
   el.value='';
   const assignee=($('td-assignee')&&$('td-assignee').value)?$('td-assignee').value:me.id;
-  await sb.from('todos').insert({employee_id:assignee,content:v,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null,start_date:start||null,subtasks:draftSubs});
+  const isPriv=$('td-private')?$('td-private').checked:false;
+  await sb.from('todos').insert({employee_id:assignee,content:v,recur_type:rt,weekday:wd,priority:prio,field:field||null,note:note||null,due_date:due||null,start_date:start||null,subtasks:draftSubs,is_private:isPriv});
   draftSubs=[];
   render();
 }
