@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: private-todo 2026-07-23a -->
+<!-- build: field-etc 2026-07-24a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -1087,7 +1087,7 @@ function todoAddForm(emps){
   return `<div class="card" style="max-width:560px">
       <div class="field"><label>내용</label><input id="td-in" placeholder="TO DO LIST 입력하세요"></div>
       <div class="field two"><div><label>분류</label><select id="td-type" onchange="var v=this.value;document.getElementById('td-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('td-mdwrap').style.display=v==='monthly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option><option value="monthly">매월(날짜 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div><div id="td-mdwrap" style="display:none"><label>날짜</label><select id="td-md">${mdOpts}</select></div></div>
-      <div class="field two"><div><label>우선순위</label><select id="td-prio"><option>보통</option><option>최상</option><option>높음</option><option>낮음</option></select></div><div><label>분야</label><select id="td-field"><option value="">미지정</option><option>틱톡</option><option>그룹라이브</option><option>마케팅</option><option>매니지먼트</option><option>경영/전략</option></select></div></div>
+      <div class="field two"><div><label>우선순위</label><select id="td-prio"><option>보통</option><option>최상</option><option>높음</option><option>낮음</option></select></div><div><label>분야</label><select id="td-field"><option value="">미지정</option><option>틱톡</option><option>그룹라이브</option><option>마케팅</option><option>매니지먼트</option><option>경영/전략</option><option>기타</option></select></div></div>
       <div class="field"><label>담당자 (배분)</label><select id="td-assignee">${(emps||[]).map(e=>`<option value="${e.id}" ${e.id===me.id?'selected':''}>${esc(e.name)}${e.id===me.id?' (나)':''}</option>`).join('')}</select></div>
       <div class="field"><label>시작 예정일 (이 날짜부터 목록에 표시 · 선택)</label><input type="date" id="td-start"></div>
       <div class="field"><label>마감일 (선택)</label><input type="date" id="td-due"></div>
@@ -1133,8 +1133,8 @@ async function moveTopTodo(id,dir){
 }
 function groupTodoByField(items,compSet){
   if(!items.length)return '<div class="empty">오늘 TO DO LIST가 없습니다</div>';
-  const order=['경영/전략','틱톡','마케팅','매니지먼트','그룹라이브','미지정'];
-  const fc={'틱톡':'#111','그룹라이브':'#7F77DD','마케팅':'#D85A30','매니지먼트':'#16A06B','경영/전략':'#2F6BE4','미지정':'#8A93A2'};
+  const order=['경영/전략','틱톡','마케팅','매니지먼트','그룹라이브','기타','미지정'];
+  const fc={'틱톡':'#111','그룹라이브':'#7F77DD','마케팅':'#D85A30','매니지먼트':'#16A06B','경영/전략':'#2F6BE4','기타':'#B07A2E','미지정':'#8A93A2'};
   const top=items.filter(t=>t.priority==='최상').slice().sort((a,b)=>{
     const ra=(a.top_rank==null?9999:Number(a.top_rank)), rb=(b.top_rank==null?9999:Number(b.top_rank));
     if(ra!==rb)return ra-rb;
@@ -1226,7 +1226,7 @@ async function openTodoModal(id){
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===t.weekday?'selected':''}>${d}일</option>`).join('');
   const tsel=(v,l)=>`<option value="${v}" ${t.recur_type===v?'selected':''}>${l}</option>`;
   const psel=p=>`<option ${(t.priority||'보통')===p?'selected':''}>${p}</option>`;
-  const FIELDS=['틱톡','그룹라이브','마케팅','매니지먼트','경영/전략'];
+  const FIELDS=['틱톡','그룹라이브','마케팅','매니지먼트','경영/전략','기타'];
   const fsel=FIELDS.map(f=>`<option ${t.field===f?'selected':''}>${f}</option>`).join('');
   modalSubs=Array.isArray(t.subtasks)?t.subtasks.map(x=>({t:x.t,d:!!x.d,due:x.due||'',note:x.note||'',asg:x.asg||''})):[];modalSubsCan=can;modalTodoId=t.id;
   const host=document.createElement('div');host.id='todoModalHost';
