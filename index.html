@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: doc-revert 2026-07-24c -->
+<!-- build: leave-tz-fix 2026-07-24d -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -742,8 +742,9 @@ async function viewLeave(){
     <button class="submit" onclick="submitLeave()">신청하기</button></div></div>
     <div><h2 class="sec">내 신청 내역</h2><div class="card">${list}</div></div></div>${leaveAdmin}`;
 }
-function dateRange(f,t){const out=[];let d=new Date(f+'T00:00:00');const end=new Date(t+'T00:00:00');let n=0;while(d<=end&&n<62){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);n++;}return out;}
-function plusDays(ds,n){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function _fmtLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function dateRange(f,t){const out=[];let d=new Date(f+'T00:00:00');const end=new Date(t+'T00:00:00');let n=0;while(d<=end&&n<62){out.push(_fmtLocal(d));d.setDate(d.getDate()+1);n++;}return out;}
+function plusDays(ds,n){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()+n);return _fmtLocal(d);}
 async function submitLeave(){
   const f=$('lv-from').value,t=$('lv-to').value,r=$('lv-reason').value;
   if(!f||!t){toast('기간을 입력하세요');return;}
