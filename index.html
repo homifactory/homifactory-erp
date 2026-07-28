@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: todo-nowrap-off 2026-07-28c -->
+<!-- build: approval-collapse 2026-07-28d -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -855,7 +855,9 @@ async function viewApproval(){
       <span class="meta" style="margin-left:auto;font-weight:700">${fdocs.length}건</span>
     </div>`;
     const allrows=fdocs.map(d=>{const bb=d.status==='승인'?'b-green':d.status==='대기'?'b-amber':'b-red';return `<div class="row" onclick="docModal='${d.id}';render()" style="cursor:pointer"><div><div class="ttl">${esc(d.employees?d.employees.name:'')} · ${esc(d.doc_type)}</div><div class="meta">${esc(d.summary||'')} · ${(d.created_at||'').slice(0,10)}${paidTag(d)}${d.receipt_path?` · <button class="xmini" style="color:var(--blue);padding:0;font-size:12px" onclick="event.stopPropagation();openReceipt('${d.receipt_path}')">영수증</button>`:''}</div></div><span class="badge2 ${bb}">${d.status}</span></div>`;}).join('')||'<div class="empty">내역이 없습니다</div>';
-    admin=`${cardsBlock}<h2 class="sec">전체 결재 내역</h2>${_fbar}<div class="card">${allrows}</div><div style="height:8px"></div>`;
+    const _apOpen=(function(){try{var v=localStorage.getItem('homi_apOpen');return v===null?true:v==='1';}catch(_){return true;}})();
+    const _apHdr=`<h2 class="sec" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:7px" onclick="try{localStorage.setItem('homi_apOpen','${_apOpen?'0':'1'}');}catch(_){}render()"><span style="font-size:12px;color:var(--muted)">${_apOpen?'▼':'▶'}</span>전체 결재 내역 <span class="meta" style="font-weight:600">(${(alldocs||[]).length}건)</span></h2>`;
+    admin=`${cardsBlock}${_apHdr}${_apOpen?`${_fbar}<div class="card">${allrows}</div>`:''}<div style="height:8px"></div>`;
   }
   let docM='';
   if(docModal){
