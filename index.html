@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: badges-below 2026-07-28e -->
+<!-- build: cal-more 2026-07-29a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -121,7 +121,7 @@
   .fldhd .cnt{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border-radius:10px;padding:1px 8px}
   .calwrap{border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
   .calhead{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--line)}.caldow{text-align:center;padding:9px 0;font-size:12px;font-weight:700;color:var(--muted)}
-  .calgrid{display:grid;grid-template-columns:repeat(7,1fr)}.calcell{min-height:86px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 7px;cursor:pointer;overflow:hidden}.calcell:nth-child(7n){border-right:none}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr)}.calcell{min-height:86px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 7px;cursor:pointer;overflow:hidden;display:flex;flex-direction:column}.calcell:nth-child(7n){border-right:none}
   .calcell:hover{background:#FAFBFE}.calcell.out{background:var(--bg)}.calcell.sel{background:var(--blue-soft)}.calcell .dn{font-size:12px;font-weight:600}.calcell.today .dn{background:var(--blue);color:#fff;border-radius:50%;width:21px;height:21px;display:inline-flex;align-items:center;justify-content:center}
   .evchip{font-size:10px;font-weight:600;padding:2px 5px;border-radius:6px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .navbtn{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:17px;color:var(--ink)}.navbtn:hover{border-color:var(--blue);color:var(--blue)}
@@ -1032,7 +1032,7 @@ async function calendarBlock(){
     if(dn<1){out=true;cd=new Date(calY,calM,0).getDate()+dn;cm=calM-1;if(cm<0){cm=11;cy--;}}
     else if(dn>lastDay){out=true;cd=dn-lastDay;cm=calM+1;if(cm>11){cm=0;cy++;}}
     const ds=`${cy}-${String(cm+1).padStart(2,'0')}-${String(cd).padStart(2,'0')}`;
-    const ch=(byDate[ds]||[]).slice(0,3).map(e=>`<div class="evchip" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${e.event_time?esc(e.event_time)+' ':''}${esc(e.title)}</div>`).join('');
+    const _dev=(byDate[ds]||[]);const _cap=4;const ch=_dev.slice(0,_cap).map(e=>`<div class="evchip" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${e.event_time?esc(e.event_time)+' ':''}${esc(e.title)}</div>`).join('')+(_dev.length>_cap?`<div class="evchip" style="background:#EEF0F3;color:#6B7280;font-weight:700">+${_dev.length-_cap}개 더</div>`:'');
     cells+=`<div class="calcell ${out?'out':''} ${ds===today?'today':''} ${ds===calSel?'sel':''}" onclick="calSel='${ds}';evEdit=null;render()"><span class="dn">${cd}</span>${ch}</div>`;}
   const head=DOW.map(d=>`<div class="caldow">${d}</div>`).join('');
   const selEvs=allEv.filter(e=>{const s=e.event_date,en=e.end_date||e.event_date;return s<=calSel&&calSel<=en;});
