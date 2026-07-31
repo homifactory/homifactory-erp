@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: indo-workspace 2026-07-31a -->
+<!-- build: ws-full-parity 2026-07-31b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -172,13 +172,15 @@
 const SB_URL='https://xvvhspzgdkekdzbqgljb.supabase.co';
 const SB_KEY='sb_publishable_gWrrutB2Kor1A-74G9kAaQ_ZD2VpYfK';
 const sb=window.supabase.createClient(SB_URL,SB_KEY);
+const SCOPED_WS=new Set(['todos','events','documents','meetings','projects','expenses','contacts','archives','drive_folders','drive_files','settle_cards']);
+(function(){const _from=sb.from.bind(sb);sb.from=function(table){const qb=_from(table);if(!SCOPED_WS.has(table))return qb;const ws=(typeof workspace!=='undefined'&&workspace)?workspace:'kr';const _sel=qb.select.bind(qb),_ins=qb.insert.bind(qb),_ups=qb.upsert.bind(qb),_upd=qb.update.bind(qb),_del=qb.delete.bind(qb);const ww=r=>Object.assign({ws:ws},r);qb.select=(...a)=>_sel(...a).eq('ws',ws);qb.insert=(rows,opts)=>_ins(Array.isArray(rows)?rows.map(ww):ww(rows),opts);qb.upsert=(rows,opts)=>_ups(Array.isArray(rows)?rows.map(ww):ww(rows),opts);qb.update=(vals,opts)=>_upd(vals,opts).eq('ws',ws);qb.delete=(opts)=>_del(opts).eq('ws',ws);return qb;};})();
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GROUPS=['경영','마케팅','공연 및 퍼포먼스','매니지먼트','틱톡 라이브','컨텐츠'];
 const EVC=t=>({'내부 회의':'#C98A12','외부 미팅':'#2E75B6','신규 크리에이터 미팅':'#7F77DD','그룹 라이브':'#D85A30','공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','구글':'#4285F4','기타':'#6B7686'}[t]||'#6B7686');
 let me=null, tab='home';
 let workspace=(function(){try{return localStorage.getItem('homi_ws')||'kr';}catch(_){return 'kr';}})();
-function setWorkspace(w){workspace=w;try{localStorage.setItem('homi_ws',w);}catch(_){}tab=(w==='id')?'indo':'home';closeSide();render();}
+function setWorkspace(w){workspace=w;try{localStorage.setItem('homi_ws',w);}catch(_){}tab='home';closeSide();render();}
 let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel=new Date().toISOString().slice(0,10);
 let docType='야근·주말·외근', leaveType='연차';
 let apf={emp:'',type:'',status:'',paid:'',q:''};
@@ -226,7 +228,6 @@ async function refreshBadges(){
 }
 function canFin(){return !!(me&&(me.is_admin||(me.dept&&me.dept.indexOf('경영')>-1)));}
 function navItems(){
-  if(workspace==='id')return [['indo','인도네시아 홈']];
   const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['drive','드라이브'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
   if(canFin())b.splice(9,0,['settlement','정산']);
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
@@ -234,8 +235,7 @@ function navItems(){
 }
 function renderNav(){
   const _wsEl=document.getElementById('wsswitch');
-  if(_wsEl){const _b=(w,lb)=>`<button onclick="setWorkspace('${w}')" style="flex:1;border:1px solid ${workspace===w?'var(--blue)':'rgba(255,255,255,.25)'};background:${workspace===w?'var(--blue)':'transparent'};color:#fff;border-radius:8px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer">${lb}</button>`;_wsEl.innerHTML=canIndo()?`<div style="display:flex;gap:5px;padding:4px 10px 8px">${_b('kr','🇰🇷 호미')}${_b('id','🇮🇩 Indonesia')}</div>`:'';}
-  const _bt=document.getElementById('brandtxt');if(_bt)_bt.textContent=(workspace==='id')?'Homi ERP · Indonesia':'호미팩토리 ERP';
+  if(_wsEl){const _b=(w,lb)=>`<button onclick="setWorkspace('${w}')" style="flex:1;border:1px solid ${workspace===w?'var(--blue)':'rgba(255,255,255,.25)'};background:${workspace===w?'var(--blue)':'transparent'};color:#fff;border-radius:8px;padding:7px 0;font-size:12.5px;font-weight:700;cursor:pointer;letter-spacing:.2px">${lb}</button>`;_wsEl.innerHTML=canIndo()?`<div style="display:flex;gap:5px;padding:4px 10px 8px">${_b('kr','Korea')}${_b('id','Indonesia')}</div>`:'';}
   $('nav').innerHTML=navItems().map(([k,l])=>{
     if(k==='mail')return `<button class="${tab===k?'on':''}" onclick="go('mail')"><span>${l}</span>${window._mailUnread?`<span class="badge">${window._mailUnread>99?'99+':window._mailUnread}</span>`:''}</button>`;
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
@@ -638,7 +638,6 @@ async function indoMemberToggle(id,on){const {error}=await sb.from('employees').
 ;
 async function render(){
   if(workspace==='id'&&me&&!canIndo())workspace='kr';
-  if(workspace==='id'&&tab!=='indo')tab='indo';
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
   try{ $('view').innerHTML=await (VIEWS[tab]||viewHome)(); }
