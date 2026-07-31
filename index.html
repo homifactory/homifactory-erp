@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: cal-more 2026-07-29a -->
+<!-- build: indo-page 2026-07-29b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -226,6 +226,7 @@ function canFin(){return !!(me&&(me.is_admin||(me.dept&&me.dept.indexOf('경영'
 function navItems(){
   const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['drive','드라이브'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
   if(canFin())b.splice(9,0,['settlement','정산']);
+  if(canIndo()){const _ci=b.findIndex(x=>x[0]==='cal');b.splice(_ci+1,0,['indo','🇮🇩 인도네시아']);}
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
 }
@@ -235,7 +236,7 @@ function renderNav(){
     let bd='';if(k==='approval'&&pendCounts.doc)bd=`<span class="badge">${pendCounts.doc}</span>`;if(k==='team'&&pendCounts.leave)bd=`<span class="badge">${pendCounts.leave}</span>`;
     return `<button class="${tab===k?'on':''}" onclick="go('${k}')"><span>${l}</span>${bd}</button>`;}).join('');
 }
-const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',drive:'드라이브',contacts:'주소록',leave:'휴가',approval:'전자결재',settlement:'정산',mail:'메일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
+const TITLES={home:'홈',todo:'TO DO LIST',cal:'캘린더',meet:'회의록',archive:'자료실',drive:'드라이브',contacts:'주소록',leave:'휴가',approval:'전자결재',settlement:'정산',indo:'🇮🇩 인도네시아',mail:'메일',mypage:'마이페이지',hr:'인사',team:'팀 관리'};
 function toggleSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(!sd)return;var open=sd.classList.toggle('open');if(o)o.classList.toggle('show',open);}
 function closeSide(){var sd=document.querySelector('.side');var o=document.getElementById('sideov');if(sd)sd.classList.remove('open');if(o)o.classList.remove('show');}
 function go(t){tab=t;closeSide();render();$('view').scrollTop=0;}
@@ -574,7 +575,62 @@ async function gdDelete(id){
   if(!r.ok){toast('삭제 실패(권한 확인)');return;}
   toast('휴지통으로 이동');render();
 }
-const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,settlement:viewSettlement,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam};
+const VIEWS={home:viewHome,todo:viewTodo,cal:viewCal,meet:viewMeet,archive:viewArchive,drive:viewDrive,contacts:viewContacts,leave:viewLeave,approval:viewApproval,settlement:viewSettlement,indo:viewIndo,mail:viewMail,mypage:viewMyPage,hr:viewHR,team:viewTeam}
+
+/* ---------- 인도네시아 지사 페이지 ---------- */
+function canIndo(){return !!(me&&(me.is_admin||(me.dept&&me.dept.indexOf('경영')>-1)||me.indo_member));}
+async function viewIndo(){
+  if(!canIndo())return '<div class="card"><div class="empty">접근 권한이 없습니다</div></div>';
+  const [kpiR,memoR,todoR,creR,linkR]=await Promise.all([
+    sb.from('indo_kpis').select('*').order('sort'),
+    sb.from('indo_memo').select('*').eq('id',1).maybeSingle(),
+    sb.from('indo_todos').select('*').order('done').order('created_at',{ascending:false}),
+    sb.from('indo_creators').select('*').order('created_at',{ascending:false}),
+    sb.from('indo_links').select('*').order('created_at',{ascending:false})
+  ]);
+  const kpis=kpiR.data||[],memo=(memoR.data&&memoR.data.body)||'',todos=todoR.data||[],cres=creR.data||[],links=linkR.data||[];
+  const _inp='border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-family:inherit';
+  const kpiCards=kpis.map(k=>`<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:150px;background:#fff">
+    <input value="${esc(k.label||'')}" onchange="indoKpiSave('${k.id}','label',this.value)" placeholder="지표명" style="border:none;font-size:12px;color:var(--muted);font-weight:600;width:100%;outline:none;background:transparent">
+    <input value="${esc(k.value||'')}" onchange="indoKpiSave('${k.id}','value',this.value)" placeholder="0" style="border:none;font-size:22px;font-weight:800;color:var(--ink);width:100%;outline:none;margin-top:4px;background:transparent">
+    <button class="xmini" onclick="indoKpiDel('${k.id}')" style="margin-top:2px;color:var(--muted)">삭제</button></div>`).join('');
+  const kpiBlock=`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin-bottom:10px">${kpiCards}<button onclick="indoKpiAdd()" style="border:1px dashed var(--line);background:#fff;color:var(--blue);border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer">+ 지표</button></div>`;
+  const memoBlock=`<div class="card"><textarea id="indo-memo" rows="4" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:inherit;box-sizing:border-box" placeholder="인도네시아 지사 현황·메모를 입력하세요">${esc(memo)}</textarea><button class="submit" style="margin-top:8px;width:auto;padding:8px 18px" onclick="indoMemoSave()">메모 저장</button></div>`;
+  const todoRows=todos.map(t=>`<div class="row"><label style="display:flex;align-items:center;gap:9px;flex:1;cursor:pointer"><input type="checkbox" ${t.done?'checked':''} onchange="indoTodoToggle('${t.id}',${t.done?1:0})"><span style="${t.done?'text-decoration:line-through;color:var(--muted)':'font-weight:600'}">${esc(t.content)}</span></label>${t.due_date?`<span class="tdtag">${t.due_date}</span>`:''}<button class="xmini" onclick="indoTodoDel('${t.id}')">×</button></div>`).join('')||'<div class="empty">등록된 할 일이 없습니다</div>';
+  const todoBlock=`<div class="card"><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"><input id="indo-td" placeholder="할 일 입력" style="flex:1;min-width:160px;${_inp}"><input type="date" id="indo-td-due" style="${_inp}"><button class="submit" style="width:auto;padding:8px 18px" onclick="indoTodoAdd()">추가</button></div>${todoRows}</div>`;
+  const stOpt=(cur)=>['접촉','협의중','계약','보류','종료'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
+  const creRows=cres.map(c=>`<div class="row"><div style="flex:1;min-width:0"><div class="ttl">${esc(c.name||'')} ${c.platform?`<span class="tdtag">${esc(c.platform)}</span>`:''}</div><div class="meta">${c.handle?esc(c.handle)+' · ':''}${c.contact?esc(c.contact)+' · ':''}${esc(c.note||'')}</div></div><select onchange="indoCreSave('${c.id}','status',this.value)" style="border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px">${stOpt(c.status)}</select><button class="xmini" onclick="indoCreDel('${c.id}')">×</button></div>`).join('')||'<div class="empty">등록된 크리에이터/파트너가 없습니다</div>';
+  const creBlock=`<div class="card"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><input id="indo-cre-name" placeholder="이름" style="${_inp}"><input id="indo-cre-plat" placeholder="플랫폼" style="width:90px;${_inp}"><input id="indo-cre-handle" placeholder="핸들/링크" style="${_inp}"><input id="indo-cre-contact" placeholder="연락처" style="${_inp}"><input id="indo-cre-note" placeholder="메모" style="flex:1;min-width:120px;${_inp}"><button class="submit" style="width:auto;padding:8px 18px" onclick="indoCreAdd()">추가</button></div>${creRows}</div>`;
+  const linkRows=links.map(l=>`<div class="row"><div style="flex:1;min-width:0"><div class="ttl">${l.url?`<a href="${esc(l.url)}" target="_blank" style="color:var(--blue);text-decoration:none">${esc(l.title||l.url)}</a>`:esc(l.title||'')} ${l.category?`<span class="tdtag">${esc(l.category)}</span>`:''}</div>${l.note?`<div class="meta">${esc(l.note)}</div>`:''}</div><button class="xmini" onclick="indoLinkDel('${l.id}')">×</button></div>`).join('')||'<div class="empty">등록된 자료·링크가 없습니다</div>';
+  const linkBlock=`<div class="card"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><input id="indo-lk-title" placeholder="제목" style="${_inp}"><input id="indo-lk-url" placeholder="URL" style="flex:1;min-width:160px;${_inp}"><input id="indo-lk-cat" placeholder="분류" style="width:110px;${_inp}"><button class="submit" style="width:auto;padding:8px 18px" onclick="indoLinkAdd()">추가</button></div>${linkRows}</div>`;
+  let memberBlock='';
+  if(me.is_admin){
+    const {data:emps}=await sb.from('employees').select('id,name,indo_member').eq('active',true).order('name');
+    const checks=(emps||[]).map(e=>`<label style="display:inline-flex;align-items:center;gap:5px;margin:4px 14px 4px 0;font-size:13px"><input type="checkbox" ${e.indo_member?'checked':''} onchange="indoMemberToggle('${e.id}',this.checked)">${esc(e.name)}</label>`).join('');
+    memberBlock=`<h2 class="sec">담당자 지정 (관리자)</h2><div class="card"><div class="meta" style="margin-bottom:8px">체크한 직원은 좌측 메뉴에서 인도네시아 페이지를 볼 수 있습니다. (임원·경영진은 기본 접근)</div>${checks}</div>`;
+  }
+  return `<div style="max-width:920px">
+    <h2 class="sec">🇮🇩 현황 대시보드</h2>${kpiBlock}${memoBlock}
+    <h2 class="sec" style="margin-top:18px">전용 TO DO</h2>${todoBlock}
+    <h2 class="sec" style="margin-top:18px">크리에이터 · 파트너 관리</h2>${creBlock}
+    <h2 class="sec" style="margin-top:18px">자료 · 링크</h2>${linkBlock}
+    ${memberBlock?`<div style="margin-top:18px">${memberBlock}</div>`:''}
+  </div>`;
+}
+async function indoKpiAdd(){await sb.from('indo_kpis').insert({label:'',value:'',sort:Date.now()%100000});render();}
+async function indoKpiSave(id,f,v){await sb.from('indo_kpis').update({[f]:v}).eq('id',id);}
+async function indoKpiDel(id){await sb.from('indo_kpis').delete().eq('id',id);render();}
+async function indoMemoSave(){const b=$('indo-memo').value;const {error}=await sb.from('indo_memo').upsert({id:1,body:b,updated_at:new Date().toISOString()});toast(error?'저장 실패: '+error.message:'메모 저장됨');}
+async function indoTodoAdd(){const c=$('indo-td').value.trim();if(!c)return;const d=$('indo-td-due').value||null;await sb.from('indo_todos').insert({content:c,due_date:d});render();}
+async function indoTodoToggle(id,done){await sb.from('indo_todos').update({done:!done,done_date:!done?todayStr():null}).eq('id',id);render();}
+async function indoTodoDel(id){await sb.from('indo_todos').delete().eq('id',id);render();}
+async function indoCreAdd(){const n=$('indo-cre-name').value.trim();if(!n){toast('이름을 입력하세요');return;}await sb.from('indo_creators').insert({name:n,platform:$('indo-cre-plat').value.trim()||null,handle:$('indo-cre-handle').value.trim()||null,contact:$('indo-cre-contact').value.trim()||null,note:$('indo-cre-note').value.trim()||null,status:'접촉'});render();}
+async function indoCreSave(id,f,v){await sb.from('indo_creators').update({[f]:v}).eq('id',id);}
+async function indoCreDel(id){await sb.from('indo_creators').delete().eq('id',id);render();}
+async function indoLinkAdd(){const t=$('indo-lk-title').value.trim();let u=$('indo-lk-url').value.trim();if(!t&&!u){toast('제목 또는 URL을 입력하세요');return;}if(u&&!/^https?:\/\//.test(u))u='https://'+u;await sb.from('indo_links').insert({title:t||u,url:u||null,category:$('indo-lk-cat').value.trim()||null});render();}
+async function indoLinkDel(id){await sb.from('indo_links').delete().eq('id',id);render();}
+async function indoMemberToggle(id,on){const {error}=await sb.from('employees').update({indo_member:on}).eq('id',id);toast(error?'저장 실패: '+error.message:'담당자 설정 저장됨');}
+;
 async function render(){
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
