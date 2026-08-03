@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: aug-goals 2026-08-03e -->
+<!-- build: goal-settings 2026-08-03f -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -831,7 +831,7 @@ async function goalsBoardHtml(){
       <div class="meta" style="margin-bottom:8px">${avg!=null?`목표 진행 ${avg}%`:''}${(avg!=null&&checks.length)?' · ':''}${checks.length?`체크 ${doneN}/${checks.length}`:''}</div>
       ${body}</div>`;
   }).join('');
-  return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span></div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">${deptHtml}</div></div>`;
+  return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">${deptHtml}</div></div>`;
 }
 function goalItemHtml(g){
   if(g.kind==='check'){
@@ -864,6 +864,36 @@ async function goalAdd(dept){
   const {error}=await sb.from('monthly_goals').insert(row);toast(error?'저장 실패: '+error.message:'항목 추가됨');render();
 }
 
+function goalSettingsOpen(){window._goalModal=true;render();}
+function goalSettingsClose(){window._goalModal=false;render();}
+async function goalField(id,f,v){const num=(f==='target'||f==='current'||f==='baseline');const val=num?(v===''?null:Number(v)):(f==='done'?!!v:v);await sb.from('monthly_goals').update({[f]:val}).eq('id',id);}
+async function goalKind(id,v){await sb.from('monthly_goals').update({kind:v}).eq('id',id);render();}
+async function goalAddBlank(dept,kind){const row={ym:GOAL_YM,dept:dept,kind:kind,label:'',sort:Date.now()%100000};if(kind==='kpi'){row.target=0;row.current=0;}const {error}=await sb.from('monthly_goals').insert(row);if(error){toast('추가 실패: '+error.message);return;}render();}
+function goalEditRow(g){
+  const _s='border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit';
+  const numF=(f,ph)=>`<input type="number" step="any" value="${g[f]==null?'':g[f]}" placeholder="${ph}" onchange="goalField('${g.id}','${f}',this.value)" style="width:78px;text-align:right;${_s}">`;
+  const txt=(f,ph,w)=>`<input value="${esc(g[f]||'')}" placeholder="${ph}" onchange="goalField('${g.id}','${f}',this.value)" style="${w};${_s}">`;
+  const kindSel=`<select onchange="goalKind('${g.id}',this.value)" style="${_s};width:78px">${['kpi','check','note'].map(k=>`<option value="${k}" ${g.kind===k?'selected':''}>${k==='kpi'?'수치':k==='check'?'체크':'메모'}</option>`).join('')}</select>`;
+  let fields='';
+  if(g.kind==='kpi'){fields=`<span class="meta">목표</span>${numF('target','목표')}<span class="meta">현재</span>${numF('current','현재')}<span class="meta">전월</span>${numF('baseline','전월')}${txt('unit','단위','width:56px')}`;}
+  else if(g.kind==='check'){fields=`<label style="display:inline-flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" ${g.done?'checked':''} onchange="goalField('${g.id}','done',this.checked)">완료</label>`;}
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line)">${kindSel}${txt('label','항목명','flex:1;min-width:150px')}${fields}${txt('note','비고','flex:1;min-width:110px')}<button class="xmini" onclick="goalDel('${g.id}')" title="삭제">×</button></div>`;
+}
+async function goalModalHtml(){
+  if(!window._goalModal||!canGoals())return '';
+  const {data}=await sb.from('monthly_goals').select('*').eq('ym',GOAL_YM).order('dept').order('sort');
+  const rows=data||[];
+  const depts=[['틱톡 라이브','TIKTOK LIVE · 한국'],['HOMI (인도네시아)','HOMI · 인도네시아 지사'],['마케팅','MARKETING']];
+  const _ab='border:1px dashed var(--line);background:#fff;color:var(--blue);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer';
+  const sections=depts.map(function(d){
+    const key=d[0],title=d[1];
+    const items=rows.filter(r=>r.dept===key);
+    const itemRows=items.map(goalEditRow).join('')||'<div class="meta" style="padding:6px 0">항목 없음</div>';
+    return `<div style="margin-bottom:16px"><div style="font-weight:800;font-size:14px;margin-bottom:6px">${esc(title)}</div>${itemRows}<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button onclick="goalAddBlank('${esc(key)}','kpi')" style="${_ab}">+ 수치목표</button><button onclick="goalAddBlank('${esc(key)}','check')" style="${_ab}">+ 체크</button><button onclick="goalAddBlank('${esc(key)}','note')" style="${_ab}">+ 메모</button></div></div>`;
+  }).join('');
+  return `<div class="modalbg" onclick="if(event.target===this)goalSettingsClose()"><div class="modalbox" style="max-width:860px;width:94%;max-height:88vh;overflow:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-weight:800;font-size:16px">🎯 8월 목표 설정</div><button onclick="goalSettingsClose()" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:9px;padding:7px 16px;font-weight:600;cursor:pointer">닫기</button></div><div class="meta" style="margin-bottom:12px">유형(수치/체크/메모)·항목명·목표·현재·전월·단위·비고를 수정하면 자동 저장됩니다.</div>${sections}</div></div>`;
+}
+
 async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
@@ -874,6 +904,7 @@ async function viewHome(){
   const cal=await calendarBlock();
   const _hideAP=(workspace==='id');
   const _goals=(workspace!=='id')?await goalsBoardHtml():'';
+  const _goalM=(workspace!=='id')?await goalModalHtml():'';
   return `${_goals}${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
@@ -882,7 +913,7 @@ async function viewHome(){
     <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}</div></div>
     <div><h2 class="sec">TO DO LIST 등록</h2>${todoAddForm(homeEmps)}</div>
     </div>
-    <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}`;
+    <h2 class="sec" style="margin-top:20px">캘린더</h2>${cal}${_goalM}`;
 }
 
 /* ---------- 근태 ---------- */
