@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: ws-full-parity 2026-07-31b -->
+<!-- build: indo-en-5tabs 2026-08-03a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -176,6 +176,62 @@ const SCOPED_WS=new Set(['todos','events','documents','meetings','projects','exp
 (function(){const _from=sb.from.bind(sb);sb.from=function(table){const qb=_from(table);if(!SCOPED_WS.has(table))return qb;const ws=(typeof workspace!=='undefined'&&workspace)?workspace:'kr';const _sel=qb.select.bind(qb),_ins=qb.insert.bind(qb),_ups=qb.upsert.bind(qb),_upd=qb.update.bind(qb),_del=qb.delete.bind(qb);const ww=r=>Object.assign({ws:ws},r);qb.select=(...a)=>_sel(...a).eq('ws',ws);qb.insert=(rows,opts)=>_ins(Array.isArray(rows)?rows.map(ww):ww(rows),opts);qb.upsert=(rows,opts)=>_ups(Array.isArray(rows)?rows.map(ww):ww(rows),opts);qb.update=(vals,opts)=>_upd(vals,opts).eq('ws',ws);qb.delete=(opts)=>_del(opts).eq('ws',ws);return qb;};})();
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- Indonesia workspace English overlay ---------- */
+const I18N_ID={
+'호미팩토리 ERP':'Homi Factory ERP','로그아웃':'Logout','관리자 · 대표':'Admin · CEO',
+'홈':'Home','캘린더':'Calendar','회의록':'Meetings','자료실':'Resources','드라이브':'Drive','주소록':'Contacts','휴가':'Leave','전자결재':'Approvals','정산':'Settlement','메일':'Mail','마이페이지':'My Page','인사':'HR','팀 관리':'Team',
+'출근':'In','퇴근':'Out','진행':'Elapsed','퇴근하기':'Clock Out','출근하기':'Clock In','다시출근':'Clock In Again','클릭하여 기록':'Click to record',
+'집중':'Focus','휴식':'Break','시작':'Start','일시정지':'Pause','건너뛰기':'Skip','리셋':'Reset','오늘 완료':'Done today','뽀모도로 ·':'Pomodoro ·',
+'🎯 집중 업무 (TO DO LIST에서 선택)':'🎯 Focus tasks (from TO DO LIST)','1순위':'#1','2순위':'#2','3순위':'#3','4순위':'#4','— 없음 —':'— None —',
+'오늘 TO DO LIST가 없습니다':'No TO DO for today','오늘 TO DO LIST 없음':'No TO DO today','TO DO LIST 등록':'Add TO DO','TO DO LIST 추가':'Add TO DO','TO DO LIST 입력하세요':'Enter a TO DO',
+'내용':'Content','분류':'Type','프로젝트(한 번)':'Project (once)','데일리(매일)':'Daily','매주(요일 지정)':'Weekly','매월(날짜 지정)':'Monthly',
+'우선순위':'Priority','분야':'Field','분야(부서)':'Field (dept)','보통':'Normal','최상':'Top','높음':'High','낮음':'Low','미지정':'Unassigned','미배정':'Unassigned',
+'틱톡':'TikTok','그룹라이브':'Group Live','마케팅':'Marketing','매니지먼트':'Management','경영/전략':'Mgmt/Strategy','기타':'Other','개인':'Personal',
+'담당자 (배분)':'Assignee','시작 예정일 (이 날짜부터 목록에 표시 · 선택)':'Start date (shows from this date · optional)','마감일 (선택)':'Due date (optional)','비고':'Note','자세한 내용을 입력하세요 (선택)':'Enter details (optional)',
+'하위 업무 (선택)':'Subtasks (optional)','하위 업무 입력 후 추가':'Enter subtask then add','추가':'Add','+ 추가':'+ Add','저장':'Save','수정':'Edit','수정 저장':'Save','취소':'Cancel',
+'최우선':'Top Priority','🔥 최우선':'🔥 Top Priority','🌙내일로':'🌙Later','내일로':'Later',
+'전체 직원 TO DO LIST 현황 · 오늘':'All staff TO DO · Today','정기 업무 (매일·매주·매월)':'Recurring (daily/weekly/monthly)','예정 (시작 전)':'Upcoming','예정':'Upcoming','오늘로 되돌리기':'Back to today','오늘 미룬 할 일':'Snoozed today',
+'완료한 업무 (최근 2주)':'Completed (last 2 weeks)','완료한 업무가 없습니다':'No completed tasks','등록된 TO DO LIST가 없습니다':'No TO DO items','오늘':'Today',
+'매일':'Daily','매주':'Weekly','매월':'Monthly',
+'제목':'Title','시작일':'Start date','종료일':'End date','시간':'Time','구분':'Type','참여 부서':'Departments','참여 인원':'Members','일정 추가':'Add event','일정 수정':'Edit event','일정이 없습니다':'No events','🔄 구글 캘린더 동기화':'🔄 Sync Google Calendar',
+'내부 회의':'Internal meeting','외부 미팅':'External meeting','신규 크리에이터 미팅':'New creator meeting','그룹 라이브':'Group Live','공휴일':'Holiday',
+'등록된 자료가 없습니다':'No items','파일 업로드':'Upload','+ 폴더':'+ Folder','이 폴더가 비어 있습니다':'This folder is empty','드라이브를 불러오지 못했습니다. (초기 설정이 필요할 수 있습니다)':'Failed to load Drive. (initial setup may be required)',
+'공개 대상':'Visibility','공개 부서 선택':'Select departments','공개 사람 선택':'Select people','링크':'Link','코멘트':'Comment','임팩트':'Impact','날짜':'Date','불러오는 중…':'Loading…',
+'일요일':'Sunday','월요일':'Monday','화요일':'Tuesday','수요일':'Wednesday','목요일':'Thursday','금요일':'Friday','토요일':'Saturday',
+'일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat','경영':'Mgmt','공연 및 퍼포먼스':'Performance','컨텐츠':'Content','틱톡 라이브':'TikTok Live'
+};
+const _DOW={'일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat'};
+function _i18nLine(t){
+  return t
+   .replace(/(\d{4})년\s*(\d{1,2})월/g,'$1.$2')
+   .replace(/(\d{1,2})월\s*(\d{1,2})일/g,'$1/$2')
+   .replace(/\((일|월|화|수|목|금|토)\)/g,(m,d)=>'('+_DOW[d]+')')
+   .replace(/\+(\d+)개\s*더/g,'+$1 more')
+   .replace(/(\d+)\s*회(?![가-힣])/g,'$1x')
+   .replace(/\s*님(?=$|\s|·)/g,'')
+   .replace(/(\d+)\s*분(?![가-힣])/g,'$1min')
+   .replace(/(\d+)\s*개(?![가-힣])/g,'$1');
+}
+function translateWS(){
+  if(workspace!=='id')return;
+  const roots=[document.getElementById('view'),document.getElementById('nav'),document.getElementById('title'),document.querySelector('.side'),document.querySelector('.topbar')].filter(Boolean);
+  const seen=new Set();
+  roots.forEach(root=>{
+    if(seen.has(root))return; seen.add(root);
+    const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);
+    const nodes=[];let n;while(n=w.nextNode())nodes.push(n);
+    nodes.forEach(node=>{
+      const raw=node.nodeValue; if(!raw)return; const t=raw.trim(); if(!t)return; if(!/[가-힣]/.test(t))return;
+      let out;
+      if(Object.prototype.hasOwnProperty.call(I18N_ID,t)) out=I18N_ID[t];
+      else out=_i18nLine(t);
+      if(out!==t){ node.nodeValue=raw.replace(t,out); }
+    });
+    root.querySelectorAll&&root.querySelectorAll('[placeholder]').forEach(el=>{const p=(el.getAttribute('placeholder')||'').trim();if(I18N_ID[p])el.setAttribute('placeholder',I18N_ID[p]);else if(/[가-힣]/.test(p))el.setAttribute('placeholder',_i18nLine(p));});
+  });
+}
+
 const GROUPS=['경영','마케팅','공연 및 퍼포먼스','매니지먼트','틱톡 라이브','컨텐츠'];
 const EVC=t=>({'내부 회의':'#C98A12','외부 미팅':'#2E75B6','신규 크리에이터 미팅':'#7F77DD','그룹 라이브':'#D85A30','공연':'#D85A30','라이브':'#7F77DD','회의':'#C98A12','휴가':'#1E9E6A','휴가대기':'#C98A12','공휴일':'#D64545','구글':'#4285F4','기타':'#6B7686'}[t]||'#6B7686');
 let me=null, tab='home';
@@ -228,6 +284,7 @@ async function refreshBadges(){
 }
 function canFin(){return !!(me&&(me.is_admin||(me.dept&&me.dept.indexOf('경영')>-1)));}
 function navItems(){
+  if(workspace==='id')return [['home','Home'],['todo','TO DO'],['cal','Calendar'],['archive','Resources'],['drive','Drive']];
   const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['drive','드라이브'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
   if(canFin())b.splice(9,0,['settlement','정산']);
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
@@ -643,6 +700,7 @@ async function render(){
   try{ $('view').innerHTML=await (VIEWS[tab]||viewHome)(); }
   catch(e){ $('view').innerHTML='<div class="card"><div class="empty" style="color:var(--red)">오류: '+esc(e.message)+'</div></div>'; }
   if(window._afFocus){const q=document.getElementById('af-q');if(q){q.focus();const v=q.value;q.value='';q.value=v;}window._afFocus=0;}
+  try{translateWS();}catch(_){}
 }
 
 /* ---------- 근태 공통 ---------- */
