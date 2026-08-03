@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: goal-settings 2026-08-03f -->
+<!-- build: goal-cur-render 2026-08-03g -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -853,7 +853,7 @@ function goalItemHtml(g){
   </div>`;
 }
 async function goalToggle(id,done){await sb.from('monthly_goals').update({done:!done}).eq('id',id);render();}
-async function goalCur(id,v){await sb.from('monthly_goals').update({current:Number(v)||0}).eq('id',id);}
+async function goalCur(id,v){const {error}=await sb.from('monthly_goals').update({current:Number(v)||0}).eq('id',id);toast(error?'저장 실패':'저장됨');render();}
 async function goalDel(id){if(!confirm('이 목표 항목을 삭제할까요?'))return;await sb.from('monthly_goals').delete().eq('id',id);render();}
 async function goalAdd(dept){
   const label=prompt('항목 이름'); if(!label)return;
