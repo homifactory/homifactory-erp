@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: indo-en-5tabs 2026-08-03c -->
+<!-- build: indo-noatt-approve3 2026-08-03d -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -815,10 +815,11 @@ async function viewHome(){
   const homeEmps=(await sb.from('emp_dir').select('id,name').order('name')).data||[];setEmpMap(homeEmps);
   const tl=groupTodoByField(todayItems.filter(t=>!todoChecked(t,ts.compSet)),ts.compSet);
   const cal=await calendarBlock();
-  return `<div class="grid2" style="align-items:stretch;margin-top:18px">
+  const _hideAP=(workspace==='id');
+  return `${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
-    </div>
+    </div>`}
     <div class="grid2" style="margin-top:18px">
     <div><h2 class="sec">TO DO LIST (today)</h2><div class="card">${tl}</div></div>
     <div><h2 class="sec">TO DO LIST 등록</h2>${todoAddForm(homeEmps)}</div>
@@ -948,7 +949,7 @@ async function viewApproval(){
     let cardsBlock='';
     if(me.is_admin){
       const {data:pend}=await sb.from('documents').select('*,employees(name)').eq('status','대기').order('created_at');
-      const cards=(pend||[]).map(p=>{const act=(p.doc_type==='구매 상신'&&me.name!=='윤호성')?`<div class="meta" style="color:var(--blue)">윤호성 대표 승인 대기</div>`:`<div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div>`;return `<div class="card" style="margin-top:10px"><div style="margin-bottom:8px;cursor:pointer" onclick="docModal='${p.id}';render()"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="event.stopPropagation();openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div>${act}</div>`;}).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
+      const cards=(pend||[]).map(p=>{const _AP=['윤호성','배수빈','최성용'];let act;if(p.doc_type==='구매 상신'&&me.name!=='윤호성'){act=`<div class="meta" style="color:var(--blue)">윤호성 대표 승인 대기</div>`;}else if(p.doc_type==='지출 결의'||p.doc_type==='야근·주말·외근'){const _ap=Array.isArray(p.approvals)?p.approvals:[];const _prog=_AP.map(n=>`<span style="color:${_ap.indexOf(n)>-1?'#16a34a':'var(--muted)'};font-weight:${_ap.indexOf(n)>-1?'700':'500'}">${n}${_ap.indexOf(n)>-1?' ✓':''}</span>`).join(' · ');const _iCan=_AP.indexOf(me.name)>-1&&_ap.indexOf(me.name)<0;act=`<div class="meta" style="margin-bottom:6px">승인 진행 (3인 전원 필요): ${_prog}</div>`+(_iCan?`<div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div>`:`<div class="meta" style="color:var(--muted)">${_ap.indexOf(me.name)>-1?'내 승인 완료 · 나머지 대기':'승인 권한 없음'}</div>`);}else{act=`<div class="act"><button class="ap" onclick="decideDoc('${p.id}',true)">승인</button><button class="rj" onclick="decideDoc('${p.id}',false)">반려</button></div>`;}return `<div class="card" style="margin-top:10px"><div style="margin-bottom:8px;cursor:pointer" onclick="docModal='${p.id}';render()"><div class="ttl">${esc(p.employees?p.employees.name:'')} · ${esc(p.doc_type)}</div><div class="meta">${esc(p.summary||'')}</div>${p.receipt_path?`<button class="xmini" style="color:var(--blue)" onclick="event.stopPropagation();openReceipt('${p.receipt_path}')">영수증 보기</button>`:''}</div>${act}</div>`;}).join('')||'<div class="card"><div class="empty">결재할 문서가 없습니다</div></div>';
       cardsBlock=`<h2 class="sec">결재 대기 · ${(pend||[]).length}건</h2>${cards}<div style="height:8px"></div>`;
     }
     const {data:alldocs}=await sb.from('documents').select('*,employees(name)').order('created_at',{ascending:false});
@@ -1040,20 +1041,38 @@ async function sendMail(to,subject,body){
   var b64=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   try{var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'},body:JSON.stringify({raw:b64})});return r.ok;}catch(e){return false;}
 }
+const APPROVERS=['윤호성','배수빈','최성용'];
+function isThreeLine(dt){return dt==='지출 결의'||dt==='야근·주말·외근';}
 async function decideDoc(id,ok){
-  const {data:doc}=await sb.from('documents').select('doc_type,summary,employee_id,payload').eq('id',id).maybeSingle();
-  await sb.from('documents').update({status:ok?'승인':'반려'}).eq('id',id);
-  if(ok&&doc&&doc.doc_type==='구매 상신'){
+  const {data:doc}=await sb.from('documents').select('*').eq('id',id).maybeSingle();
+  if(!doc)return;
+  if(!ok){await sb.from('documents').update({status:'반려'}).eq('id',id);toast('반려 완료');await refreshBadges();render();return;}
+  if(isThreeLine(doc.doc_type)){
+    if(APPROVERS.indexOf(me.name)<0){toast('승인 권한이 없습니다 (대표 3인만 승인)');return;}
+    let appr=Array.isArray(doc.approvals)?doc.approvals.slice():[];
+    if(appr.indexOf(me.name)<0)appr.push(me.name);
+    const remain=APPROVERS.filter(n=>appr.indexOf(n)<0);
+    if(remain.length>0){
+      await sb.from('documents').update({approvals:appr}).eq('id',id);
+      toast('승인 기록됨 · 남은 승인: '+remain.join(', '));
+      await refreshBadges();render();return;
+    }
+    await sb.from('documents').update({status:'승인',approvals:appr}).eq('id',id);
+    if(doc.doc_type==='지출 결의'){
+      var who=empMap[doc.employee_id]||'';
+      var sent=await sendMail('support@homifactory.com','[지출결의 최종 승인] '+(doc.summary||''),'지출 결의가 대표 3인 전원 승인되었습니다.\n\n신청자: '+who+'\n내용: '+(doc.summary||'')+'\n승인: '+APPROVERS.join(', ')+'\n승인일시: '+new Date().toLocaleString('ko-KR'));
+      toast(sent?'최종 승인 완료 · support@ 메일 발송됨':'최종 승인 완료(메일 발송 실패)');
+    }else{toast('최종 승인 완료 (대표 3인 전원)');}
+    await refreshBadges();render();return;
+  }
+  await sb.from('documents').update({status:'승인'}).eq('id',id);
+  if(doc.doc_type==='구매 상신'){
     const {data:pj}=await sb.from('employees').select('id').eq('name','라정선').maybeSingle();
     if(pj){await sb.from('todos').insert({employee_id:pj.id,content:'[구매 요청] '+(doc.summary||''),recur_type:'project',priority:'높음'});}
     var who=empMap[doc.employee_id]||'';var pl=doc.payload||{};
     var sent=await sendMail('support@homifactory.com','[구매 상신 승인] '+(doc.summary||''),'구매 상신이 승인되었습니다.\n\n신청자: '+who+'\n품목: '+(pl.item||'')+'\n수량: '+(pl.qty!=null?pl.qty:'')+'\n예상 금액: '+(pl.amount!=null?Number(pl.amount).toLocaleString()+'원':'')+'\n구매처: '+(pl.vendor||'')+'\n결제수단: '+(pl.card||'')+'\n사유: '+(pl.reason||'')+'\n\n승인자: '+(me.name||'')+'\n승인일시: '+new Date().toLocaleString('ko-KR')+'\n\n※ 구매 담당: 라정선');
-    toast(sent?'승인 · 라정선 전달 · support@ 메일 발송됨':'승인 · 라정선 전달(메일 발송 실패 · 권한 확인 필요)');
-  }else if(ok&&doc&&doc.doc_type==='지출 결의'){
-    var who=empMap[doc.employee_id]||'';
-    var sent=await sendMail('support@homifactory.com','[지출결의 승인] '+(doc.summary||''),'지출 결의가 승인되었습니다.\n\n신청자: '+who+'\n내용: '+(doc.summary||'')+'\n승인자: '+(me.name||'')+'\n승인일시: '+new Date().toLocaleString('ko-KR'));
-    toast(sent?'승인 완료 · support@ 메일 발송됨':'승인 완료(메일 발송 실패 · 권한 확인 필요)');
-  }else{toast(ok?'승인 완료':'반려 완료');}
+    toast(sent?'승인 · 라정선 전달 · support@ 메일 발송됨':'승인 · 라정선 전달(메일 발송 실패)');
+  }else{toast('승인 완료');}
   await refreshBadges();render();
 }
 async function revertDoc(id){
