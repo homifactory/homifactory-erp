@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: indo-noatt-approve3 2026-08-03d -->
+<!-- build: aug-goals 2026-08-03e -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -807,6 +807,63 @@ async function addDeptGoal(d){d=decodeURIComponent(d);const ym=todayStr().slice(
 async function toggleDeptGoal(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;items[i].d=!items[i].d;await _deptSave(d,ym,items);render();}
 async function editDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;const v=prompt('목표 수정',items[i].t);if(v===null)return;items[i].t=v.trim();const cur=items[i].tgt!=null?String(items[i].tgt):'';const tg=prompt('목표 수치 (숫자 · 비우면 체크형)',cur);if(tg!==null){const tgn=Number(tg);if(tg.trim()!==''&&!isNaN(tgn)&&tgn>0){items[i].tgt=tgn;if(items[i].cur==null)items[i].cur=0;}else{delete items[i].tgt;delete items[i].cur;}}await _deptSave(d,ym,items);render();}
 async function delDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;if(!confirm('이 목표를 삭제할까요?'))return;items.splice(i,1);await _deptSave(d,ym,items);toast('삭제되었습니다');render();}
+
+/* ---------- 8월 목표 보드 (임원 전용) ---------- */
+const GOAL_YM='2026-08';
+function canGoals(){return !!(me&&['윤호성','배수빈','최성용'].indexOf(me.name)>-1);}
+async function goalsBoardHtml(){
+  if(!canGoals())return '';
+  const {data}=await sb.from('monthly_goals').select('*').eq('ym',GOAL_YM).order('dept').order('sort');
+  const rows=data||[];
+  const depts=[['틱톡 라이브','TIKTOK LIVE · 한국','#111'],['HOMI (인도네시아)','HOMI · 인도네시아 지사','#2E75B6'],['마케팅','MARKETING','#D85A30']];
+  const deptHtml=depts.map(function(d){
+    const key=d[0],title=d[1],col=d[2];
+    const items=rows.filter(r=>r.dept===key);
+    const body=items.length?items.map(goalItemHtml).join(''):'<div class="meta" style="padding:6px 0">항목이 없습니다</div>';
+    const kpis=items.filter(i=>i.kind==='kpi'&&Number(i.target));
+    const avg=kpis.length?Math.round(kpis.reduce((s,i)=>s+Math.min(100,(Number(i.current||0)/Number(i.target))*100),0)/kpis.length):null;
+    const checks=items.filter(i=>i.kind==='check');const doneN=checks.filter(i=>i.done).length;
+    return `<div style="flex:1;min-width:300px;border:1px solid ${col}33;border-radius:14px;padding:14px 16px;background:#fff">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-weight:800;font-size:15px;color:${col}">${esc(title)}</div>
+        <button onclick="goalAdd('${esc(key)}')" style="border:1px dashed var(--line);background:#fff;color:var(--blue);border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">+ 항목</button>
+      </div>
+      <div class="meta" style="margin-bottom:8px">${avg!=null?`목표 진행 ${avg}%`:''}${(avg!=null&&checks.length)?' · ':''}${checks.length?`체크 ${doneN}/${checks.length}`:''}</div>
+      ${body}</div>`;
+  }).join('');
+  return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span></div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">${deptHtml}</div></div>`;
+}
+function goalItemHtml(g){
+  if(g.kind==='check'){
+    return `<div class="row" style="padding:6px 0"><label style="display:flex;align-items:flex-start;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${g.done?'checked':''} onchange="goalToggle('${g.id}',${g.done?1:0})" style="margin-top:3px"><span><span style="${g.done?'text-decoration:line-through;color:var(--muted)':'font-weight:600'}">${esc(g.label||'')}</span>${g.note?`<span class="meta" style="display:block">${esc(g.note)}</span>`:''}</span></label><button class="xmini" onclick="goalDel('${g.id}')">×</button></div>`;
+  }
+  if(g.kind==='note'){
+    return `<div class="row" style="padding:5px 0"><div style="flex:1"><div class="meta">📌 ${esc(g.label||'')}${g.note?' · '+esc(g.note):''}</div></div><button class="xmini" onclick="goalDel('${g.id}')">×</button></div>`;
+  }
+  const cur=Number(g.current||0),tgt=Number(g.target||0);
+  const pct=tgt>0?Math.min(100,Math.round(cur/tgt*100)):0;
+  const growth=(g.baseline!=null&&Number(g.baseline)>0&&tgt>0)?Math.round(((tgt-Number(g.baseline))/Number(g.baseline))*1000)/10:null;
+  return `<div style="padding:8px 0;border-top:1px solid var(--line)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span style="font-weight:700;font-size:13px">${esc(g.label||'')}</span>
+      <span style="display:flex;align-items:center;gap:5px;flex-shrink:0"><input type="number" step="any" value="${cur}" onchange="goalCur('${g.id}',this.value)" style="width:74px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:13px;font-weight:700"><span class="meta">/ ${tgt}${esc(g.unit||'')}</span><button class="xmini" onclick="goalDel('${g.id}')">×</button></span>
+    </div>
+    <div style="height:7px;background:#EEF0F3;border-radius:5px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=100?'#16a34a':'var(--blue)'}"></div></div>
+    <div class="meta" style="margin-top:3px">${pct}% 달성${g.baseline!=null?` · 전월 ${g.baseline}${esc(g.unit||'')}${growth!=null?` (목표 ${growth>=0?'+':''}${growth}%↑)`:''}`:''}${g.note?` · ${esc(g.note)}`:''}</div>
+  </div>`;
+}
+async function goalToggle(id,done){await sb.from('monthly_goals').update({done:!done}).eq('id',id);render();}
+async function goalCur(id,v){await sb.from('monthly_goals').update({current:Number(v)||0}).eq('id',id);}
+async function goalDel(id){if(!confirm('이 목표 항목을 삭제할까요?'))return;await sb.from('monthly_goals').delete().eq('id',id);render();}
+async function goalAdd(dept){
+  const label=prompt('항목 이름'); if(!label)return;
+  const kind=prompt('유형 입력 — 수치목표: kpi / 체크리스트: check / 메모: note','kpi');
+  const k=(kind==='check'||kind==='note')?kind:'kpi';
+  const row={ym:GOAL_YM,dept:dept,kind:k,label:label,sort:Date.now()%100000};
+  if(k==='kpi'){row.target=Number(prompt('목표 수치(숫자만)','0'))||0;row.unit=prompt('단위 (예: M, 만원, 명)','')||null;row.current=0;const b=prompt('전월 기준값 (없으면 비움)','');if(b)row.baseline=Number(b)||null;}
+  const {error}=await sb.from('monthly_goals').insert(row);toast(error?'저장 실패: '+error.message:'항목 추가됨');render();
+}
+
 async function viewHome(){
   const a=await todayAtt();
   const ts=await fetchTodoState();const todayItems=sortByPrio(ts.defs.filter(applicableToday));
@@ -816,7 +873,8 @@ async function viewHome(){
   const tl=groupTodoByField(todayItems.filter(t=>!todoChecked(t,ts.compSet)),ts.compSet);
   const cal=await calendarBlock();
   const _hideAP=(workspace==='id');
-  return `${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
+  const _goals=(workspace!=='id')?await goalsBoardHtml():'';
+  return `${_goals}${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
     </div>`}
