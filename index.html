@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: indo-en-5tabs 2026-08-03b -->
+<!-- build: indo-en-5tabs 2026-08-03c -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -211,7 +211,7 @@ function _i18nLine(t){
    .replace(/(\d+)\s*회(?![가-힣])/g,'$1x')
    .replace(/\s*님(?=$|\s|·)/g,'')
    .replace(/(\d+)\s*분(?![가-힣])/g,'$1min')
-   .replace(/(\d+)\s*개(?![가-힣])/g,'$1');
+   .replace(/(\d+)\s*개(?![가-힣])/g,'$1').replace(/일정/g,'Schedule');
 }
 function translateWS(){
   if(workspace!=='id')return;
