@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: indo-en-5tabs 2026-08-03a -->
+<!-- build: indo-en-5tabs 2026-08-03b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -180,7 +180,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 /* ---------- Indonesia workspace English overlay ---------- */
 const I18N_ID={
 '호미팩토리 ERP':'Homi Factory ERP','로그아웃':'Logout','관리자 · 대표':'Admin · CEO',
-'홈':'Home','캘린더':'Calendar','회의록':'Meetings','자료실':'Resources','드라이브':'Drive','주소록':'Contacts','휴가':'Leave','전자결재':'Approvals','정산':'Settlement','메일':'Mail','마이페이지':'My Page','인사':'HR','팀 관리':'Team',
+'홈':'Home','캘린더':'Calendar','회의록':'Meetings','회 ·':'× ·','(나)':'(me)','오늘 완료 ':'Done today ','자료실':'Resources','드라이브':'Drive','주소록':'Contacts','휴가':'Leave','전자결재':'Approvals','정산':'Settlement','메일':'Mail','마이페이지':'My Page','인사':'HR','팀 관리':'Team',
 '출근':'In','퇴근':'Out','진행':'Elapsed','퇴근하기':'Clock Out','출근하기':'Clock In','다시출근':'Clock In Again','클릭하여 기록':'Click to record',
 '집중':'Focus','휴식':'Break','시작':'Start','일시정지':'Pause','건너뛰기':'Skip','리셋':'Reset','오늘 완료':'Done today','뽀모도로 ·':'Pomodoro ·',
 '🎯 집중 업무 (TO DO LIST에서 선택)':'🎯 Focus tasks (from TO DO LIST)','1순위':'#1','2순위':'#2','3순위':'#3','4순위':'#4','— 없음 —':'— None —',
@@ -215,7 +215,7 @@ function _i18nLine(t){
 }
 function translateWS(){
   if(workspace!=='id')return;
-  const roots=[document.getElementById('view'),document.getElementById('nav'),document.getElementById('title'),document.querySelector('.side'),document.querySelector('.topbar')].filter(Boolean);
+  const roots=[document.getElementById('app')].filter(Boolean);
   const seen=new Set();
   roots.forEach(root=>{
     if(seen.has(root))return; seen.add(root);
