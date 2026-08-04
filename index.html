@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: goals-cardui 2026-08-04a -->
+<!-- build: goals-collapse 2026-08-04b -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -810,6 +810,8 @@ async function delDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().sli
 
 /* ---------- 8월 목표 보드 (임원 전용) ---------- */
 const GOAL_YM='2026-08';
+let goalCollapsed={};
+function goalDeptToggle(key){goalCollapsed[key]=!goalCollapsed[key];render();}
 function canGoals(){return !!(me&&['윤호성','배수빈','최성용'].indexOf(me.name)>-1);}
 function goalFmt(n,unit){
   n=Number(n||0);unit=unit||'';
@@ -884,9 +886,12 @@ async function goalsBoardHtml(){
       const cards=kpisNotes.map(g=>g.kind==='note'?goalNoteCard(g,st.accent):goalKpiCard(g,st.accent)).join('');
       inner=(cards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">${cards}</div>`:'')+(checks.length?goalCheckCard(checks):'');
     }
+    const collapsed=!!goalCollapsed[key];
+    const kn=kpisNotes.length, ck=checks.length;
+    const summary=collapsed?`<span class="meta">${kn?kn+'개 항목':''}${(kn&&ck)?' · ':''}${ck?'체크 '+checks.filter(c=>c.done).length+'/'+ck:''}</span>`:'';
     return `<div style="margin-bottom:22px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><span style="background:${st.pillBg};color:${st.pillTx};font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px">${esc(st.title)}</span>${hint}</div>
-      ${inner}</div>`;
+      <div onclick="goalDeptToggle('${esc(key)}')" style="display:flex;align-items:center;gap:8px;margin-bottom:11px;cursor:pointer;user-select:none"><span style="font-size:11px;color:var(--muted);width:12px;display:inline-block">${collapsed?'▸':'▾'}</span><span style="background:${st.pillBg};color:${st.pillTx};font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px">${esc(st.title)}</span>${collapsed?summary:hint}</div>
+      ${collapsed?'':inner}</div>`;
   }).join('');
   return `<div style="margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div>
