@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: goals-collapse 2026-08-04b -->
+<!-- build: goals-polish 2026-08-04c -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -836,28 +836,32 @@ function goalKpiCard(g,accent){
   if(tgt>0)meta.push(pct+'% 달성');
   if(g.baseline!=null)meta.push('전월 '+goalFmt(g.baseline,g.unit||'')+(growth!=null?' ('+(growth>=0?'+':'')+growth+'%)':''));
   if(g.note)meta.push(esc(g.note));
-  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
-    <div style="font-size:13px;color:var(--muted)">${esc(g.label||'')}</div>
-    <div style="display:flex;align-items:baseline;gap:5px;margin:5px 0 8px">
-      <input type="number" step="any" value="${cur}" onchange="goalCur('${g.id}',this.value)" style="width:96px;font-size:19px;font-weight:800;color:var(--ink);border:none;border-bottom:1px solid var(--line);background:transparent;padding:0 0 2px">
+  const pctBadge=tgt>0?`<span style="font-size:11px;font-weight:700;color:${pct>=100?'#16a34a':accent};background:${pct>=100?'#E9F7EE':'#F0F4FB'};padding:2px 8px;border-radius:99px">${pct}%</span>`:'';
+  const sub=[];
+  if(g.baseline!=null)sub.push('전월 '+goalFmt(g.baseline,g.unit||'')+(growth!=null?' ('+(growth>=0?'+':'')+growth+'%)':''));
+  if(g.note)sub.push(esc(g.note));
+  return `<div class="gcard">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span style="font-size:12.5px;color:var(--muted);font-weight:500">${esc(g.label||'')}</span>${pctBadge}</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin:7px 0 11px">
+      <input type="number" step="any" class="gnum" value="${cur}" onchange="goalCur('${g.id}',this.value)">
       <span style="font-size:13px;color:var(--muted)">/ ${tgtDisp}</span>
     </div>
-    <div style="height:6px;background:#EEF0F3;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=100?'#16a34a':accent}"></div></div>
-    <div class="meta" style="margin-top:6px">${meta.join(' · ')}</div>
+    <div class="gbar"><i style="width:${pct}%;background:${pct>=100?'#16a34a':accent}"></i></div>
+    ${sub.length?`<div style="font-size:12px;color:var(--muted);margin-top:9px;line-height:1.5">${sub.join(' · ')}</div>`:''}
   </div>`;
 }
 function goalNoteCard(g,accent){
-  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:7px;height:7px;border-radius:50%;background:${accent};flex:none"></span><span style="font-size:13px;font-weight:700;color:var(--ink)">${esc(g.label||'')}</span></div>
-    ${g.note?`<div class="meta">${esc(g.note)}</div>`:''}
+  return `<div class="gnote">
+    <div style="display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:${accent};flex:none"></span><span style="font-size:13.5px;font-weight:700;color:var(--ink)">${esc(g.label||'')}</span></div>
+    ${g.note?`<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;padding-left:14px">${esc(g.note)}</div>`:''}
   </div>`;
 }
 function goalCheckCard(items){
-  const rows=items.map((g,i)=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;${i<items.length-1?'border-bottom:1px solid var(--line)':''}">
-    <input type="checkbox" ${g.done?'checked':''} onchange="goalToggle('${g.id}',${g.done?1:0})" style="margin-top:3px;cursor:pointer">
-    <div><div style="font-size:14px;${g.done?'text-decoration:line-through;color:var(--muted)':'color:var(--ink)'}">${esc(g.label||'')}</div>${g.note?`<div class="meta">${esc(g.note)}</div>`:''}</div>
+  const rows=items.map((g,i)=>`<div class="gchk" style="${i<items.length-1?'border-bottom:1px solid var(--line)':''}">
+    <input type="checkbox" ${g.done?'checked':''} onchange="goalToggle('${g.id}',${g.done?1:0})" style="margin-top:2px;cursor:pointer;width:16px;height:16px;accent-color:#16a34a">
+    <div><div style="font-size:14px;${g.done?'text-decoration:line-through;color:var(--muted)':'color:var(--ink)'}">${esc(g.label||'')}</div>${g.note?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(g.note)}</div>`:''}</div>
   </div>`).join('');
-  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:2px 14px;margin-top:12px">${rows}</div>`;
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 16px;margin-top:12px;box-shadow:0 1px 3px rgba(20,28,45,.04)">${rows}</div>`;
 }
 async function goalsBoardHtml(){
   if(!canGoals())return '';
@@ -867,10 +871,10 @@ async function goalsBoardHtml(){
   const crt=rows.find(r=>r.dept==='HOMI (인도네시아)'&&(r.label||'').indexOf('크리에이터')>-1);
   const allChecks=rows.filter(r=>r.kind==='check');const doneN=allChecks.filter(r=>r.done).length;
   const diaGrowth=(dia&&dia.baseline!=null&&Number(dia.baseline)>0)?Math.round(((Number(dia.target)-Number(dia.baseline))/Number(dia.baseline))*1000)/10:null;
-  const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:12px 0 22px">
-    <div style="background:#F5F7FB;border-radius:10px;padding:14px"><div class="meta">다이아 목표</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${dia?goalFmt(dia.target,''):'—'}</div><div style="font-size:12px;color:#185FA5">${dia&&dia.baseline!=null?'전월 '+goalFmt(dia.baseline,'')+(diaGrowth!=null?' · '+(diaGrowth>=0?'+':'')+diaGrowth+'%':''):''}</div></div>
-    <div style="background:#F5F7FB;border-radius:10px;padding:14px"><div class="meta">신규 크리에이터</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${crt?goalFmt(crt.target,crt.unit||''):'—'}</div><div class="meta">인도네시아 지사</div></div>
-    <div style="background:#F5F7FB;border-radius:10px;padding:14px"><div class="meta">체크리스트</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${doneN} / ${allChecks.length}</div><div class="meta">완료 항목</div></div>
+  const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:14px 0 24px">
+    <div class="gtile"><div style="font-size:12.5px;color:var(--muted);font-weight:500">다이아 목표</div><div style="font-size:25px;font-weight:800;color:var(--ink);margin-top:3px">${dia?goalFmt(dia.target,''):'—'}</div><div style="font-size:12px;color:#185FA5;margin-top:3px">${dia&&dia.baseline!=null?'전월 '+goalFmt(dia.baseline,'')+(diaGrowth!=null?' · '+(diaGrowth>=0?'+':'')+diaGrowth+'%':''):''}</div></div>
+    <div class="gtile"><div style="font-size:12.5px;color:var(--muted);font-weight:500">신규 크리에이터</div><div style="font-size:25px;font-weight:800;color:var(--ink);margin-top:3px">${crt?goalFmt(crt.target,crt.unit||''):'—'}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">인도네시아 지사</div></div>
+    <div class="gtile"><div style="font-size:12.5px;color:var(--muted);font-weight:500">체크리스트</div><div style="font-size:25px;font-weight:800;color:var(--ink);margin-top:3px">${doneN} <span style="font-size:16px;color:var(--muted)">/ ${allChecks.length}</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px">완료 항목</div></div>
   </div>`;
   const depts=['틱톡 라이브','HOMI (인도네시아)','마케팅'];
   const deptHtml=depts.map(function(key){
@@ -884,17 +888,35 @@ async function goalsBoardHtml(){
       inner=`<div style="background:#F5F7FB;border-radius:12px;padding:22px;text-align:center"><div class="meta">${key==='마케팅'?'마케팅 8월 목표 입력 예정 · ⚙ 목표 설정에서 추가':'항목이 없습니다'}</div></div>`;
     }else{
       const cards=kpisNotes.map(g=>g.kind==='note'?goalNoteCard(g,st.accent):goalKpiCard(g,st.accent)).join('');
-      inner=(cards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">${cards}</div>`:'')+(checks.length?goalCheckCard(checks):'');
+      inner=(cards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:14px">${cards}</div>`:'')+(checks.length?goalCheckCard(checks):'');
     }
     const collapsed=!!goalCollapsed[key];
     const kn=kpisNotes.length, ck=checks.length;
     const summary=collapsed?`<span class="meta">${kn?kn+'개 항목':''}${(kn&&ck)?' · ':''}${ck?'체크 '+checks.filter(c=>c.done).length+'/'+ck:''}</span>`:'';
-    return `<div style="margin-bottom:22px">
-      <div onclick="goalDeptToggle('${esc(key)}')" style="display:flex;align-items:center;gap:8px;margin-bottom:11px;cursor:pointer;user-select:none"><span style="font-size:11px;color:var(--muted);width:12px;display:inline-block">${collapsed?'▸':'▾'}</span><span style="background:${st.pillBg};color:${st.pillTx};font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px">${esc(st.title)}</span>${collapsed?summary:hint}</div>
+    return `<div style="margin-bottom:24px">
+      <div class="gchead" onclick="goalDeptToggle('${esc(key)}')"><span class="gchev" style="transform:rotate(${collapsed?'0':'90'}deg)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><span class="gpill" style="background:${st.pillBg};color:${st.pillTx}">${esc(st.title)}</span>${collapsed?summary:hint}</div>
       ${collapsed?'':inner}</div>`;
   }).join('');
-  return `<div style="margin-bottom:18px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div>
+  return `<style>
+.gtile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 18px;box-shadow:0 1px 3px rgba(20,28,45,.05)}
+.gcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(20,28,45,.04);transition:box-shadow .15s,border-color .15s}
+.gcard:hover{box-shadow:0 4px 12px rgba(20,28,45,.09);border-color:#DCE1EA}
+.gnum{font-size:20px;font-weight:800;color:var(--ink);border:none;background:transparent;width:94px;padding:2px 0;outline:none;border-bottom:1.5px solid transparent;transition:border-color .15s}
+.gnum:hover{border-bottom-color:var(--line)}
+.gnum:focus{border-bottom-color:var(--blue)}
+.gnum::-webkit-outer-spin-button,.gnum::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.gnum{-moz-appearance:textfield}
+.gbar{height:7px;background:#EDEFF4;border-radius:99px;overflow:hidden}
+.gbar>i{display:block;height:100%;border-radius:99px;transition:width .4s ease}
+.gpill{font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;letter-spacing:.2px}
+.gchev{display:inline-flex;color:var(--muted);transition:transform .18s}
+.gchead{display:flex;align-items:center;gap:9px;margin-bottom:13px;cursor:pointer;user-select:none;width:fit-content}
+.gchead:hover .gchev{color:var(--ink)}
+.gchk{display:flex;gap:11px;align-items:flex-start;padding:11px 2px}
+.gnote{background:#F7FAFD;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+</style>
+<div style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div>
     <div class="meta">부서별 수치 목표와 체크리스트 · 값은 월초 기준</div>
     ${tiles}${deptHtml}</div>`;
 }
