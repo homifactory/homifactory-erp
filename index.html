@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: goal-cur-render 2026-08-03g -->
+<!-- build: goals-cardui 2026-08-04a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -811,46 +811,87 @@ async function delDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().sli
 /* ---------- 8월 목표 보드 (임원 전용) ---------- */
 const GOAL_YM='2026-08';
 function canGoals(){return !!(me&&['윤호성','배수빈','최성용'].indexOf(me.name)>-1);}
+function goalFmt(n,unit){
+  n=Number(n||0);unit=unit||'';
+  if(unit===''){
+    if(n>=1000000){var v=n/1000000;return (Number.isInteger(v)?v:parseFloat(v.toFixed(2)))+'M';}
+    if(n>=1000){var w=n/1000;return (Number.isInteger(w)?w:parseFloat(w.toFixed(1)))+'K';}
+    return ''+n;
+  }
+  return n+unit;
+}
+function goalDeptStyle(key){
+  if(key==='틱톡 라이브')return {pillBg:'#E6F1FB',pillTx:'#0C447C',accent:'#185FA5',title:'TIKTOK LIVE · 한국'};
+  if(key==='HOMI (인도네시아)')return {pillBg:'#E1F5EE',pillTx:'#04342C',accent:'#0F6E56',title:'HOMI · 인도네시아 지사'};
+  return {pillBg:'#FAECE7',pillTx:'#4A1B0C',accent:'#D85A30',title:'MARKETING'};
+}
+function goalKpiCard(g,accent){
+  const cur=Number(g.current||0),tgt=Number(g.target||0);
+  const pct=tgt>0?Math.min(100,Math.round(cur/tgt*100)):0;
+  const growth=(g.baseline!=null&&Number(g.baseline)>0&&tgt>0)?Math.round(((tgt-Number(g.baseline))/Number(g.baseline))*1000)/10:null;
+  const tgtDisp=goalFmt(tgt,g.unit||'');
+  const meta=[];
+  if(tgt>0)meta.push(pct+'% 달성');
+  if(g.baseline!=null)meta.push('전월 '+goalFmt(g.baseline,g.unit||'')+(growth!=null?' ('+(growth>=0?'+':'')+growth+'%)':''));
+  if(g.note)meta.push(esc(g.note));
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+    <div style="font-size:13px;color:var(--muted)">${esc(g.label||'')}</div>
+    <div style="display:flex;align-items:baseline;gap:5px;margin:5px 0 8px">
+      <input type="number" step="any" value="${cur}" onchange="goalCur('${g.id}',this.value)" style="width:96px;font-size:19px;font-weight:800;color:var(--ink);border:none;border-bottom:1px solid var(--line);background:transparent;padding:0 0 2px">
+      <span style="font-size:13px;color:var(--muted)">/ ${tgtDisp}</span>
+    </div>
+    <div style="height:6px;background:#EEF0F3;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=100?'#16a34a':accent}"></div></div>
+    <div class="meta" style="margin-top:6px">${meta.join(' · ')}</div>
+  </div>`;
+}
+function goalNoteCard(g,accent){
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:7px;height:7px;border-radius:50%;background:${accent};flex:none"></span><span style="font-size:13px;font-weight:700;color:var(--ink)">${esc(g.label||'')}</span></div>
+    ${g.note?`<div class="meta">${esc(g.note)}</div>`:''}
+  </div>`;
+}
+function goalCheckCard(items){
+  const rows=items.map((g,i)=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;${i<items.length-1?'border-bottom:1px solid var(--line)':''}">
+    <input type="checkbox" ${g.done?'checked':''} onchange="goalToggle('${g.id}',${g.done?1:0})" style="margin-top:3px;cursor:pointer">
+    <div><div style="font-size:14px;${g.done?'text-decoration:line-through;color:var(--muted)':'color:var(--ink)'}">${esc(g.label||'')}</div>${g.note?`<div class="meta">${esc(g.note)}</div>`:''}</div>
+  </div>`).join('');
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:2px 14px;margin-top:12px">${rows}</div>`;
+}
 async function goalsBoardHtml(){
   if(!canGoals())return '';
   const {data}=await sb.from('monthly_goals').select('*').eq('ym',GOAL_YM).order('dept').order('sort');
   const rows=data||[];
-  const depts=[['틱톡 라이브','TIKTOK LIVE · 한국','#111'],['HOMI (인도네시아)','HOMI · 인도네시아 지사','#2E75B6'],['마케팅','MARKETING','#D85A30']];
-  const deptHtml=depts.map(function(d){
-    const key=d[0],title=d[1],col=d[2];
-    const items=rows.filter(r=>r.dept===key);
-    const body=items.length?items.map(goalItemHtml).join(''):'<div class="meta" style="padding:6px 0">항목이 없습니다</div>';
-    const kpis=items.filter(i=>i.kind==='kpi'&&Number(i.target));
-    const avg=kpis.length?Math.round(kpis.reduce((s,i)=>s+Math.min(100,(Number(i.current||0)/Number(i.target))*100),0)/kpis.length):null;
-    const checks=items.filter(i=>i.kind==='check');const doneN=checks.filter(i=>i.done).length;
-    return `<div style="flex:1;min-width:300px;border:1px solid ${col}33;border-radius:14px;padding:14px 16px;background:#fff">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div style="font-weight:800;font-size:15px;color:${col}">${esc(title)}</div>
-        <button onclick="goalAdd('${esc(key)}')" style="border:1px dashed var(--line);background:#fff;color:var(--blue);border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">+ 항목</button>
-      </div>
-      <div class="meta" style="margin-bottom:8px">${avg!=null?`목표 진행 ${avg}%`:''}${(avg!=null&&checks.length)?' · ':''}${checks.length?`체크 ${doneN}/${checks.length}`:''}</div>
-      ${body}</div>`;
-  }).join('');
-  return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">${deptHtml}</div></div>`;
-}
-function goalItemHtml(g){
-  if(g.kind==='check'){
-    return `<div class="row" style="padding:6px 0"><label style="display:flex;align-items:flex-start;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${g.done?'checked':''} onchange="goalToggle('${g.id}',${g.done?1:0})" style="margin-top:3px"><span><span style="${g.done?'text-decoration:line-through;color:var(--muted)':'font-weight:600'}">${esc(g.label||'')}</span>${g.note?`<span class="meta" style="display:block">${esc(g.note)}</span>`:''}</span></label><button class="xmini" onclick="goalDel('${g.id}')">×</button></div>`;
-  }
-  if(g.kind==='note'){
-    return `<div class="row" style="padding:5px 0"><div style="flex:1"><div class="meta">📌 ${esc(g.label||'')}${g.note?' · '+esc(g.note):''}</div></div><button class="xmini" onclick="goalDel('${g.id}')">×</button></div>`;
-  }
-  const cur=Number(g.current||0),tgt=Number(g.target||0);
-  const pct=tgt>0?Math.min(100,Math.round(cur/tgt*100)):0;
-  const growth=(g.baseline!=null&&Number(g.baseline)>0&&tgt>0)?Math.round(((tgt-Number(g.baseline))/Number(g.baseline))*1000)/10:null;
-  return `<div style="padding:8px 0;border-top:1px solid var(--line)">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <span style="font-weight:700;font-size:13px">${esc(g.label||'')}</span>
-      <span style="display:flex;align-items:center;gap:5px;flex-shrink:0"><input type="number" step="any" value="${cur}" onchange="goalCur('${g.id}',this.value)" style="width:74px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:13px;font-weight:700"><span class="meta">/ ${tgt}${esc(g.unit||'')}</span><button class="xmini" onclick="goalDel('${g.id}')">×</button></span>
-    </div>
-    <div style="height:7px;background:#EEF0F3;border-radius:5px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=100?'#16a34a':'var(--blue)'}"></div></div>
-    <div class="meta" style="margin-top:3px">${pct}% 달성${g.baseline!=null?` · 전월 ${g.baseline}${esc(g.unit||'')}${growth!=null?` (목표 ${growth>=0?'+':''}${growth}%↑)`:''}`:''}${g.note?` · ${esc(g.note)}`:''}</div>
+  const dia=rows.find(r=>r.dept==='틱톡 라이브'&&r.kind==='kpi'&&(r.label||'').indexOf('다이아')>-1&&(r.label||'').indexOf('팬픽')<0);
+  const crt=rows.find(r=>r.dept==='HOMI (인도네시아)'&&(r.label||'').indexOf('크리에이터')>-1);
+  const allChecks=rows.filter(r=>r.kind==='check');const doneN=allChecks.filter(r=>r.done).length;
+  const diaGrowth=(dia&&dia.baseline!=null&&Number(dia.baseline)>0)?Math.round(((Number(dia.target)-Number(dia.baseline))/Number(dia.baseline))*1000)/10:null;
+  const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:12px 0 22px">
+    <div style="background:#F5F7FB;border-radius:10px;padding:14px"><div class="meta">다이아 목표</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${dia?goalFmt(dia.target,''):'—'}</div><div style="font-size:12px;color:#185FA5">${dia&&dia.baseline!=null?'전월 '+goalFmt(dia.baseline,'')+(diaGrowth!=null?' · '+(diaGrowth>=0?'+':'')+diaGrowth+'%':''):''}</div></div>
+    <div style="background:#F5F7FB;border-radius:10px;padding:14px"><div class="meta">신규 크리에이터</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${crt?goalFmt(crt.target,crt.unit||''):'—'}</div><div class="meta">인도네시아 지사</div></div>
+    <div style="background:#F5F7FB;border-radius:10px;padding:14px"><div class="meta">체크리스트</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${doneN} / ${allChecks.length}</div><div class="meta">완료 항목</div></div>
   </div>`;
+  const depts=['틱톡 라이브','HOMI (인도네시아)','마케팅'];
+  const deptHtml=depts.map(function(key){
+    const st=goalDeptStyle(key);
+    const items=rows.filter(r=>r.dept===key);
+    const kpisNotes=items.filter(i=>i.kind==='kpi'||i.kind==='note');
+    const checks=items.filter(i=>i.kind==='check');
+    const hint=(key==='HOMI (인도네시아)')?'<span class="meta">HOMI TIKTOK LIVE 운영 · 마감 18일</span>':'';
+    let inner='';
+    if(!items.length){
+      inner=`<div style="background:#F5F7FB;border-radius:12px;padding:22px;text-align:center"><div class="meta">${key==='마케팅'?'마케팅 8월 목표 입력 예정 · ⚙ 목표 설정에서 추가':'항목이 없습니다'}</div></div>`;
+    }else{
+      const cards=kpisNotes.map(g=>g.kind==='note'?goalNoteCard(g,st.accent):goalKpiCard(g,st.accent)).join('');
+      inner=(cards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">${cards}</div>`:'')+(checks.length?goalCheckCard(checks):'');
+    }
+    return `<div style="margin-bottom:22px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><span style="background:${st.pillBg};color:${st.pillTx};font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px">${esc(st.title)}</span>${hint}</div>
+      ${inner}</div>`;
+  }).join('');
+  return `<div style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div>
+    <div class="meta">부서별 수치 목표와 체크리스트 · 값은 월초 기준</div>
+    ${tiles}${deptHtml}</div>`;
 }
 async function goalToggle(id,done){await sb.from('monthly_goals').update({done:!done}).eq('id',id);render();}
 async function goalCur(id,v){const {error}=await sb.from('monthly_goals').update({current:Number(v)||0}).eq('id',id);toast(error?'저장 실패':'저장됨');render();}
