@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: goals-polish 2026-08-04c -->
+<!-- build: login-basic-scope 2026-08-05a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -1278,12 +1278,12 @@ async function gcalSync(){
     for(const e of (evs||[])){
       const body=evToGcalBody(e);body.extendedProperties={private:{erpId:String(e.id)}};
       if(linkMap[e.id]){await fetch(GCAL+'/'+encodeURIComponent(linkMap[e.id]),{method:'PATCH',headers:gcalHeaders(),body:JSON.stringify(body)});updated++;}
-      else{const r=await fetch(GCAL,{method:'POST',headers:gcalHeaders(),body:JSON.stringify(body)});if(r.status===401)throw{c401:true};const j=await r.json();if(j.id){await sb.from('gcal_links').upsert({event_id:e.id,employee_id:me.id,gcal_id:j.id},{onConflict:'event_id,employee_id'});linkMap[e.id]=j.id;pushed++;}}
+      else{const r=await fetch(GCAL,{method:'POST',headers:gcalHeaders(),body:JSON.stringify(body)});if(r.status===401||r.status===403)throw{c401:true};const j=await r.json();if(j.id){await sb.from('gcal_links').upsert({event_id:e.id,employee_id:me.id,gcal_id:j.id},{onConflict:'event_id,employee_id'});linkMap[e.id]=j.id;pushed++;}}
     }
     const timeMin=new Date(calY,calM,1).toISOString();
     const timeMax=new Date(calY,calM+1,1).toISOString();
     const url=GCAL+'?singleEvents=true&orderBy=startTime&maxResults=250&timeMin='+encodeURIComponent(timeMin)+'&timeMax='+encodeURIComponent(timeMax);
-    const r2=await fetch(url,{headers:gcalHeaders()});if(r2.status===401)throw{c401:true};
+    const r2=await fetch(url,{headers:gcalHeaders()});if(r2.status===401||r2.status===403)throw{c401:true};
     const data=await r2.json();const items=data.items||[];
     const mine=new Set(Object.values(linkMap));
     await sb.from('gcal_events').delete().eq('employee_id',me.id).gte('event_date',mfrom).lte('event_date',mto);
@@ -1860,7 +1860,7 @@ async function doLogin(){
 $('loginBtn').onclick=doLogin;
 $('googleBtn').onclick=async()=>{
   const m=$('lmsg');m.textContent='';
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send',queryParams:{hd:'homifactory.com',prompt:'consent',access_type:'offline'}}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin,scopes:'email profile',queryParams:{hd:'homifactory.com',prompt:'select_account'}}});
   if(error){m.textContent='구글 로그인 실패: '+error.message;}
 };
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
