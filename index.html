@@ -1449,7 +1449,7 @@ function dragTopEnd(){window._dragTopId=null;document.querySelectorAll('.tdblock
 async function dropTopTodo(ev,targetId,el){ev.preventDefault();if(el)el.style.boxShadow='';const dragId=window._dragTopId;window._dragTopId=null;if(!dragId||dragId===targetId)return;const ids=(window._topIds||[]).slice();const from=ids.indexOf(dragId),to=ids.indexOf(targetId);if(from===-1||to===-1)return;ids.splice(from,1);let t=ids.indexOf(targetId);if(from<to)t=t+1;ids.splice(t,0,dragId);window._topIds=ids;for(let k=0;k<ids.length;k++){await sb.from('todos').update({top_rank:k+1}).eq('id',ids[k]);}render();}
 function groupTodoByField(items,compSet){
   if(!items.length)return '<div class="empty">오늘 TO DO LIST가 없습니다</div>';
-  const order=['경영/전략','틱톡','마케팅','매니지먼트','그룹라이브','기타','개인','미지정'];
+  const order=['개인','경영/전략','틱톡','마케팅','매니지먼트','그룹라이브','기타','미지정'];
   const fc={'틱톡':'#111','그룹라이브':'#7F77DD','마케팅':'#D85A30','매니지먼트':'#16A06B','경영/전략':'#2F6BE4','기타':'#B07A2E','개인':'#C2410C','미지정':'#8A93A2'};
   const top=items.filter(t=>t.priority==='최상').slice().sort((a,b)=>{
     const ra=(a.top_rank==null?9999:Number(a.top_rank)), rb=(b.top_rank==null?9999:Number(b.top_rank));
