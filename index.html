@@ -352,7 +352,7 @@ async function viewSettlement(){
   </div>`;
   // ===== MIDDLE: quick ingestion =====
   const projOpts=projects.map(p=>`<option value="${esc(p.code)}">${esc(p.name)} (${esc(p.code)})</option>`).join('');
-  const PMS=['법인카드','계좌이체','현금','기타'];
+  const PMS=['현금','법인카드','기타'];
   const pmOpts=PMS.map(m=>`<option value="${m}">${m}</option>`).join('');
   const quickForm=`<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><h2 class="sec" style="margin:0">빠른 지출 입력</h2><span class="meta">필수: 날짜·프로젝트·금액·내용</span></div>
