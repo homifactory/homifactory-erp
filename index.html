@@ -1328,7 +1328,7 @@ async function calendarBlock(){
     if(dn<1){out=true;cd=new Date(calY,calM,0).getDate()+dn;cm=calM-1;if(cm<0){cm=11;cy--;}}
     else if(dn>lastDay){out=true;cd=dn-lastDay;cm=calM+1;if(cm>11){cm=0;cy++;}}
     const ds=`${cy}-${String(cm+1).padStart(2,'0')}-${String(cd).padStart(2,'0')}`;
-    const _dev=(byDate[ds]||[]);const _cap=4;const ch=_dev.slice(0,_cap).map(e=>`<div class="evchip" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${e.event_time?esc(e.event_time)+' ':''}${esc(e.title)}</div>`).join('')+(_dev.length>_cap?`<div class="evchip" style="background:#EEF0F3;color:#6B7280;font-weight:700">+${_dev.length-_cap}개 더</div>`:'');
+    const _dev=(byDate[ds]||[]).slice().sort((a,b)=>{const tk=e=>{let t=e.event_time||'';if(!t){const m=(e.title||'').match(/(\d{1,2}):(\d{2})/);if(m)t=m[1]+':'+m[2];}if(t&&t.indexOf(':')===1)t='0'+t;return t;};return tk(a).localeCompare(tk(b));});const _cap=4;const ch=_dev.slice(0,_cap).map(e=>`<div class="evchip" style="background:${EVC(e.event_type)}22;color:${EVC(e.event_type)}">${e.event_time?esc(e.event_time)+' ':''}${esc(e.title)}</div>`).join('')+(_dev.length>_cap?`<div class="evchip" style="background:#EEF0F3;color:#6B7280;font-weight:700">+${_dev.length-_cap}개 더</div>`:'');
     cells+=`<div class="calcell ${out?'out':''} ${ds===today?'today':''} ${ds===calSel?'sel':''}" onclick="calSel='${ds}';evEdit=null;render()"><span class="dn">${cd}</span>${ch}</div>`;}
   const head=DOW.map(d=>`<div class="caldow">${d}</div>`).join('');
   const selEvs=allEv.filter(e=>{const s=e.event_date,en=e.end_date||e.event_date;return s<=calSel&&calSel<=en;});
