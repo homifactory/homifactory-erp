@@ -1219,20 +1219,7 @@ async function decideDoc(id,ok){
       var who=empMap[doc.employee_id]||'';
       var sent=await sendMail('support@homifactory.com','[지출결의 최종 승인] '+(doc.summary||''),'지출 결의가 대표 3인 전원 승인되었습니다.\n\n신청자: '+who+'\n내용: '+(doc.summary||'')+'\n승인: '+APPROVERS.join(', ')+'\n승인일시: '+new Date().toLocaleString('ko-KR'));
       toast(sent?'최종 승인 완료 · support@ 메일 발송됨':'최종 승인 완료(메일 발송 실패)');
-    }else if(doc.doc_type==='구매 상신'){const {data:pj}=await sb.from('employees').select('id').eq('name','라정선').maybeSingle();if(pj){await sb.from('todos').insert({employee_id:pj.id,content:'[구매 요청] '+(doc.summary||''),recur_type:'project',priority:'높음'});}var who=empMap[doc.employee_id]||'';var pl=doc.payload||{};var sent=await sendMail('support@homifactory.com','[구매 상신 최종 승인] '+(doc.summary||''),'구매 상신이 대표 3인 전원 승인되었습니다.
-
-신청자: '+who+'
-품목: '+(pl.item||'')+'
-수량: '+(pl.qty!=null?pl.qty:'')+'
-예상 금액: '+(pl.amount!=null?Number(pl.amount).toLocaleString()+'원':'')+'
-구매처: '+(pl.vendor||'')+'
-결제수단: '+(pl.card||'')+'
-사유: '+(pl.reason||'')+'
-
-승인: '+APPROVERS.join(', ')+'
-승인일시: '+new Date().toLocaleString('ko-KR')+'
-
-※ 구매 담당: 라정선');toast(sent?'최종 승인(3인 전원) · 라정선 전달 · support@ 메일 발송됨':'최종 승인(3인 전원) · 라정선 전달(메일 발송 실패)');}else{toast('최종 승인 완료 (대표 3인 전원)');}
+    }else{toast('최종 승인 완료 (대표 3인 전원)');}
     await refreshBadges();render();return;
   }
   await sb.from('documents').update({status:'승인'}).eq('id',id);
