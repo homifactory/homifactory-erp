@@ -279,8 +279,8 @@ function showLogin(){$('app').classList.add('hidden');$('login').classList.remov
 async function refreshBadges(){
   if(!me.is_admin){pendCounts={leave:0,doc:0};return;}
   const l=await sb.from('leave_requests').select('id',{count:'exact',head:true}).eq('status','대기');
-  const d=await sb.from('documents').select('id',{count:'exact',head:true}).eq('status','대기');
-  pendCounts={leave:l.count||0,doc:d.count||0};
+  const d=await sb.from('documents').select('doc_type,approvals').eq('status','대기');const _AP3=['윤호성','배수빈','최성용'];window._docActN=(d.data||[]).filter(x=>{if(isThreeLine(x.doc_type)){const a=Array.isArray(x.approvals)?x.approvals:[];return _AP3.indexOf(me.name)>-1&&a.indexOf(me.name)<0;}return true;}).length;
+  pendCounts={leave:l.count||0,doc:window._docActN||0};
 }
 function canFin(){return !!(me&&(me.is_admin||(me.dept&&me.dept.indexOf('경영')>-1)));}
 function navItems(){
