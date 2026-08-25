@@ -1766,7 +1766,7 @@ async function viewArchive(){
   const editing=arcEdit?(arc||[]).find(a=>a.id===arcEdit):null;
   const catOptsE=cats.map(c=>`<option ${editing&&editing.category===c?'selected':''}>${c}</option>`).join('');
   const impVal=editing?(editing.impact||3):3;
-  const impOpts=[3,2,1].map(n=>`<option value="${n}" ${impVal===n?'selected':''}>${'★'.repeat(n)}</option>`).join('');  const editHasKids=editing?((arc||[]).some(a=>a.parent_id===editing.id)):false;const curParent=editing&&editing.parent_id?editing.parent_id:'';const parentOpts=(arc||[]).filter(a=>!a.parent_id&&(!editing||a.id!==editing.id)).map(a=>`<option value="${a.id}" ${curParent===a.id?'selected':''}>[${esc(a.category||'기타')}] ${esc(a.title)}</option>`).join('');
+  const impOpts=[3,2,1].map(n=>`<option value="${n}" ${impVal===n?'selected':''}>${'★'.repeat(n)}</option>`).join('');  const editHasKids=editing?((arc||[]).some(a=>a.parent_id===editing.id)):false;const curParent=editing&&editing.parent_id?editing.parent_id:'';const _porder=['TIKTOK','그룹라이브','마케팅','매니지쮼트','기타'];const _prank=function(c){var i=_porder.indexOf(c);return i<0?_porder.length:i;};const parentOpts=(arc||[]).filter(a=>!a.parent_id&&(!editing||a.id!==editing.id)).sort(function(a,b){return _prank(a.category||'기타')-_prank(b.category||'기타');}).map(a=>`<option value="${a.id}" ${curParent===a.id?'selected':''}>[${esc(a.category||'기타')}] ${esc(a.title)}</option>`).join('');
   const visVal=editing?(editing.visibility||'전체'):'전체';
   const visOpts=[['전체','전체 공개'],['부서','특정 부서만'],['지정','특정 사람만']].map(o=>`<option value="${o[0]}" ${visVal===o[0]?'selected':''}>${o[1]}</option>`).join('');
   const curDepts=(editing&&editing.target_depts)?editing.target_depts:[];
