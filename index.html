@@ -550,7 +550,7 @@ async function uploadDriveFiles(files){
   toast('업로드 완료');render();
 }
 async function dlDriveFile(path,name){
-  var r=await sb.storage.from('drive').createSignedUrl(path,120,{download:decodeURIComponent(name)});
+  var r=await sb.storage.from('drive').createSignedUrl(path,300);
   if(r.error||!r.data){toast('다운로드 실패');return;}
   window.open(r.data.signedUrl,'_blank');
 }
