@@ -857,9 +857,11 @@ function goalNoteCard(g,accent){
   </div>`;
 }
 function goalCheckCard(items){
-  const rows=items.map((g,i)=>`<div class="gchk" style="${i<items.length-1?'border-bottom:1px solid var(--line)':''}">
-    <input type="checkbox" ${g.done?'checked':''} onchange="goalToggle('${g.id}',${g.done?1:0})" style="margin-top:2px;cursor:pointer;width:16px;height:16px;accent-color:#16a34a">
-    <div><div style="font-size:14px;${g.done?'text-decoration:line-through;color:var(--muted)':'color:var(--ink)'}">${esc(g.label||'')}</div>${g.note?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(g.note)}</div>`:''}</div>
+  const vis=items.filter(g=>!g.done);
+  if(!vis.length)return '';
+  const rows=vis.map((g,i)=>`<div class="gchk" style="${i<vis.length-1?'border-bottom:1px solid var(--line)':''}">
+    <input type="checkbox" onchange="goalToggle('${g.id}',0)" style="margin-top:2px;cursor:pointer;width:16px;height:16px;accent-color:#16a34a">
+    <div><div style="font-size:14px;color:var(--ink)">${esc(g.label||'')}</div>${g.note?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(g.note)}</div>`:''}</div>
   </div>`).join('');
   return `<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 16px;margin-top:12px;box-shadow:0 1px 3px rgba(20,28,45,.04)">${rows}</div>`;
 }
