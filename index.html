@@ -245,7 +245,7 @@ let meetSel=null;
 let arcModal=false;let arcEdit=null;let contactModal=false;let contactEdit=null;let empEdit=null;let draftSubs=[];let modalSubs=[];let modalSubsCan=true;let modalTodoId=null;let empMap={};let driveFolder='';let gdStack=[];
 let docModal=null;
 
-function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function todayStr(){return new Date().toISOString().slice(0,10);}
 function fmtT(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
 
