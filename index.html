@@ -1397,7 +1397,7 @@ async function toggleTodo2(id,rt,checked){
 function todoAddForm(emps){
   const wdOpts=WD.map((d,i)=>`<option value="${i}" ${i===todayWeekday()?'selected':''}>${d}요일</option>`).join('');
   const mdOpts=Array.from({length:31},(_,k)=>k+1).map(d=>`<option value="${d}" ${d===new Date().getDate()?'selected':''}>${d}일</option>`).join('');
-  return `<div class="card" style="max-width:560px">
+  return `<div class="card">
       <div class="field"><label>내용</label><input id="td-in" placeholder="TO DO LIST 입력하세요"></div>
       <div class="field two"><div><label>분류</label><select id="td-type" onchange="var v=this.value;document.getElementById('td-wdwrap').style.display=v==='weekly'?'':'none';document.getElementById('td-mdwrap').style.display=v==='monthly'?'':'none'"><option value="project">프로젝트(한 번)</option><option value="daily">데일리(매일)</option><option value="weekly">매주(요일 지정)</option><option value="monthly">매월(날짜 지정)</option></select></div><div id="td-wdwrap" style="display:none"><label>요일</label><select id="td-wd">${wdOpts}</select></div><div id="td-mdwrap" style="display:none"><label>날짜</label><select id="td-md">${mdOpts}</select></div></div>
       <div class="field two"><div><label>우선순위</label><select id="td-prio"><option>보통</option><option>최상</option><option>높음</option><option>낮음</option></select></div><div><label>분야</label><select id="td-field"><option value="">미지정</option><option>틱톡</option><option>그룹라이브</option><option>마케팅</option><option>매니지먼트</option><option>경영/전략</option><option>기타</option><option>개인</option></select></div></div>
@@ -1513,7 +1513,7 @@ async function viewTodo(){
   const upcoming=ts.defs.filter(t=>t.start_date&&t.start_date>todayStr()&&!(t.recur_type==='project'&&t.done));
   const upRows=upcoming.length?upcoming.map(t=>`<div class="row" style="cursor:pointer" onclick="openTodoModal('${t.id}')"><div><div class="ttl">${esc(t.content)}</div><div class="meta">${t.start_date}부터 시작 · ${todoTag(t)}</div></div><span class="tdtag">예정</span></div>`).join(''):'';
   return `<div class="grid2"><div>
-    <h2 class="sec">오늘</h2><div class="card" style="max-width:560px">${list}${snoozedTHtml}</div>
+    <h2 class="sec">오늘</h2><div class="card">${list}${snoozedTHtml}</div>
     <h2 class="sec">TO DO LIST 추가</h2>${todoAddForm(formEmps)}</div>
     <div><h2 class="sec">정기 업무 (매일·매주·매월)</h2><div class="card">${recurBlock(ts.defs)}</div>${upRows?`<h2 class="sec">예정 (시작 전)</h2><div class="card">${upRows}</div>`:''}<h2 class="sec">완료한 업무 (최근 2주)</h2><div class="card">${doneList}</div></div></div>${adminBlock}`;
 }
