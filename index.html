@@ -809,7 +809,7 @@ async function editDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().sl
 async function delDeptGoalI(d,i){d=decodeURIComponent(d);const ym=todayStr().slice(0,7);const items=await _deptItems(d,ym);if(!items[i])return;if(!confirm('이 목표를 삭제할까요?'))return;items.splice(i,1);await _deptSave(d,ym,items);toast('삭제되었습니다');render();}
 
 /* ---------- 8월 목표 보드 (임원 전용) ---------- */
-const GOAL_YM='2026-08';
+const GOAL_YM=new Date(Date.now()+9*3600000).toISOString().slice(0,7);const GOAL_M=parseInt(GOAL_YM.slice(5,7),10);
 let goalCollapsed={};
 function goalDeptToggle(key){goalCollapsed[key]=!goalCollapsed[key];render();}
 function canGoals(){return !!(me&&['윤호성','배수빈','최성용'].indexOf(me.name)>-1);}
@@ -887,7 +887,7 @@ async function goalsBoardHtml(){
     const hint=(key==='HOMI (인도네시아)')?'<span class="meta">HOMI TIKTOK LIVE 운영 · 마감 18일</span>':'';
     let inner='';
     if(!items.length){
-      inner=`<div style="background:#F5F7FB;border-radius:12px;padding:22px;text-align:center"><div class="meta">${key==='마케팅'?'마케팅 8월 목표 입력 예정 · ⚙ 목표 설정에서 추가':'항목이 없습니다'}</div></div>`;
+      inner=`<div style="background:#F5F7FB;border-radius:12px;padding:22px;text-align:center"><div class="meta">${key==='마케팅'?'마케팅 ${GOAL_M}월 목표 입력 예정 · ⚙ 목표 설정에서 추가':'항목이 없습니다'}</div></div>`;
     }else{
       const cards=kpisNotes.map(g=>g.kind==='note'?goalNoteCard(g,st.accent):goalKpiCard(g,st.accent)).join('');
       inner=(cards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:14px">${cards}</div>`:'')+(checks.length?goalCheckCard(checks):'');
@@ -918,7 +918,7 @@ async function goalsBoardHtml(){
 .gnote{background:#F7FAFD;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 </style>
 <div style="margin-bottom:18px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><h2 class="sec" style="margin:0">🎯 8월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><h2 class="sec" style="margin:0">🎯 ${GOAL_M}월 목표 · HOMI FACTORY</h2><span class="tdtag" style="background:#FEE2E2;color:#B91C1C">임원 전용</span><button onclick="goalSettingsOpen()" style="margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer">⚙ 목표 설정</button></div>
     <div class="meta">부서별 수치 목표와 체크리스트 · 값은 월초 기준</div>
     ${tiles}${deptHtml}</div>`;
 }
@@ -961,7 +961,7 @@ async function goalModalHtml(){
     const itemRows=items.map(goalEditRow).join('')||'<div class="meta" style="padding:6px 0">항목 없음</div>';
     return `<div style="margin-bottom:16px"><div style="font-weight:800;font-size:14px;margin-bottom:6px">${esc(title)}</div>${itemRows}<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button onclick="goalAddBlank('${esc(key)}','kpi')" style="${_ab}">+ 수치목표</button><button onclick="goalAddBlank('${esc(key)}','check')" style="${_ab}">+ 체크</button><button onclick="goalAddBlank('${esc(key)}','note')" style="${_ab}">+ 메모</button></div></div>`;
   }).join('');
-  return `<div class="modalbg" onclick="if(event.target===this)goalSettingsClose()"><div class="modalbox" style="max-width:860px;width:94%;max-height:88vh;overflow:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-weight:800;font-size:16px">🎯 8월 목표 설정</div><button onclick="goalSettingsClose()" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:9px;padding:7px 16px;font-weight:600;cursor:pointer">닫기</button></div><div class="meta" style="margin-bottom:12px">유형(수치/체크/메모)·항목명·목표·현재·전월·단위·비고를 수정하면 자동 저장됩니다.</div>${sections}</div></div>`;
+  return `<div class="modalbg" onclick="if(event.target===this)goalSettingsClose()"><div class="modalbox" style="max-width:860px;width:94%;max-height:88vh;overflow:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-weight:800;font-size:16px">🎯 ${GOAL_M}월 목표 설정</div><button onclick="goalSettingsClose()" style="border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:9px;padding:7px 16px;font-weight:600;cursor:pointer">닫기</button></div><div class="meta" style="margin-bottom:12px">유형(수치/체크/메모)·항목명·목표·현재·전월·단위·비고를 수정하면 자동 저장됩니다.</div>${sections}</div></div>`;
 }
 
 async function viewHome(){
