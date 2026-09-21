@@ -1033,7 +1033,6 @@ async function viewLeave(){
   <div class="grid2"><div><h2 class="sec">휴가 신청</h2><div class="card">
     <div class="field"><label>휴가 종류</label><div class="seg">${seg}</div></div>
     <div class="field two"><div><label>시작일</label><input type="date" id="lv-from" value="${todayStr()}"></div><div><label>종료일</label><input type="date" id="lv-to" value="${todayStr()}"></div></div>
-    <div class="field"><label>사유</label><textarea id="lv-reason" rows="2" placeholder="사유"></textarea></div>
     <button class="submit" onclick="submitLeave()">신청하기</button></div></div>
     <div><h2 class="sec">내 신청 내역</h2><div class="card">${list}</div></div></div>${leaveAdmin}`;
 }
@@ -1041,7 +1040,7 @@ function _fmtLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 function dateRange(f,t){const out=[];let d=new Date(f+'T00:00:00');const end=new Date(t+'T00:00:00');let n=0;while(d<=end&&n<62){out.push(_fmtLocal(d));d.setDate(d.getDate()+1);n++;}return out;}
 function plusDays(ds,n){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()+n);return _fmtLocal(d);}
 async function submitLeave(){
-  const f=$('lv-from').value,t=$('lv-to').value,r=$('lv-reason').value;
+  const f=$('lv-from').value,t=$('lv-to').value,r='';
   if(!f||!t){toast('기간을 입력하세요');return;}
   const {data:ins,error}=await sb.from('leave_requests').insert({employee_id:me.id,leave_type:leaveType,start_date:f,end_date:t,reason:r,status:'대기'}).select('id').maybeSingle();
   if(error){toast('오류: '+error.message);return;}
