@@ -1273,9 +1273,11 @@ function _gtokClear(){window.gToken=null;try{localStorage.removeItem('homi_gtok'
 function gcalHeaders(){return {'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'};}
 var GAPI_CLIENT_ID='136078675477-67buksfg5v04e963ajrbor0d8uisalii.apps.googleusercontent.com';
 var GAPI_SCOPES='https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send';
-var _gTokenClient=null;
-function _gisRun(){try{if(!_gTokenClient){_gTokenClient=google.accounts.oauth2.initTokenClient({client_id:GAPI_CLIENT_ID,scope:GAPI_SCOPES,hosted_domain:'homifactory.com',callback:function(resp){if(resp&&resp.access_token){_gtokSave(resp.access_token);if(typeof toast==='function')toast('구글 메일·캘린더·드라이브 권한이 연결되었습니다');if(typeof fetchMailUnread==='function')fetchMailUnread();if(typeof render==='function')render();}else{if(typeof toast==='function')toast('권한 토큰을 받지 못했습니다');}},error_callback:function(err){if(typeof toast==='function')toast('구글 권한 연결 실패 또는 취소'+(err&&err.type?(' ('+err.type+')'):''));}});}_gTokenClient.requestAccessToken({prompt:'consent'});}catch(e){if(typeof toast==='function')toast('구글 인증 초기화 오류, 새로고침 후 다시 시도해주세요');}}
-function gcalRelogin(){if(window.google&&google.accounts&&google.accounts.oauth2){_gisRun();return;}if(typeof toast==='function')toast('구글 인증 준비 중입니다. 잠시 후 버튼을 다시 눌러주세요');if(!document.getElementById('gis-lib')){var s=document.createElement('script');s.id='gis-lib';s.src='https://accounts.google.com/gsi/client';s.onerror=function(){if(typeof toast==='function')toast('구글 인증 라이브러리를 불러오지 못했습니다');};document.head.appendChild(s);}}
+var _gTokenClient=null,_gisSilent=false;
+function _gisInit(){if(_gTokenClient)return;_gTokenClient=google.accounts.oauth2.initTokenClient({client_id:GAPI_CLIENT_ID,scope:GAPI_SCOPES,hosted_domain:'homifactory.com',callback:function(resp){if(resp&&resp.access_token){_gtokSave(resp.access_token);if(!_gisSilent&&typeof toast==='function')toast('구글 메일·캘린더·드라이브 권한이 연결되었습니다');if(typeof fetchMailUnread==='function')fetchMailUnread();if(typeof render==='function')render();}else if(!_gisSilent&&typeof toast==='function'){toast('권한 토큰을 받지 못했습니다');}},error_callback:function(err){if(!_gisSilent&&typeof toast==='function')toast('구글 권한 연결 실패 또는 취소'+(err&&err.type?(' ('+err.type+')'):''));}});}
+function _gisReq(silent){try{_gisInit();_gisSilent=!!silent;_gTokenClient.requestAccessToken({prompt:silent?'':'consent'});}catch(e){if(!silent&&typeof toast==='function')toast('구글 인증 초기화 오류, 새로고침 후 다시 시도해주세요');}}
+function gcalRelogin(){if(window.google&&google.accounts&&google.accounts.oauth2){_gisReq(false);return;}if(typeof toast==='function')toast('구글 인증 준비 중입니다. 잠시 후 버튼을 다시 눌러주세요');if(!document.getElementById('gis-lib')){var s=document.createElement('script');s.id='gis-lib';s.src='https://accounts.google.com/gsi/client';s.onerror=function(){if(typeof toast==='function')toast('구글 인증 라이브러리를 불러오지 못했습니다');};document.head.appendChild(s);}}
+function gtokBootstrap(){if(_gtokLoad())return;var tries=0;var iv=setInterval(function(){tries++;if(window.google&&google.accounts&&google.accounts.oauth2){clearInterval(iv);_gisReq(true);}else if(tries>40){clearInterval(iv);}},500);}
 function evToGcalBody(e){
   if(e.event_time){const t=(e.event_time.length===5?e.event_time:e.event_time.slice(0,5));
     const sd=new Date(e.event_date+'T'+t+':00');const ed=new Date(sd.getTime()+3600000);
@@ -1899,7 +1901,7 @@ $('googleBtn').onclick=async()=>{
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('logout').onclick=async()=>{await sb.auth.signOut();showLogin();};
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='td-in')addTodo();});
-sb.auth.getSession().then(({data})=>{if(data.session){_gtokLoad();afterLogin(data.session.user);}});
+sb.auth.getSession().then(({data})=>{if(data.session){gtokBootstrap();afterLogin(data.session.user);}});
 sb.auth.onAuthStateChange((ev,session)=>{});
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
