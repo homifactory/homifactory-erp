@@ -743,7 +743,8 @@ function clockCard(a){
 /* ---------- 뽀모도로 타이머 ---------- */
 window.pomo=window.pomo||{phase:'work',left:25*60,running:false,work:25,brk:5,done:0,focus1:null,focus2:null,focus3:null,focus4:null};
 function pomoFmt(s){s=Math.max(0,s|0);const m=Math.floor(s/60),x=s%60;return String(m).padStart(2,'0')+':'+String(x).padStart(2,'0');}
-function pomoBeep(){try{const ac=new (window.AudioContext||window.webkitAudioContext)();if(ac.resume)ac.resume();const beep=(t,f)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.3,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);o.start(t);o.stop(t+0.36);};const n=ac.currentTime;beep(n,880);beep(n+0.45,880);beep(n+0.9,1175);setTimeout(()=>ac.close(),1700);}catch(e){}}
+function pomoAudio(){try{if(!window._audioCtx){window._audioCtx=new (window.AudioContext||window.webkitAudioContext)();}if(window._audioCtx.state==='suspended'&&window._audioCtx.resume)window._audioCtx.resume();return window._audioCtx;}catch(e){return null;}}
+function pomoBeep(){try{const ac=pomoAudio();if(!ac)return;const beep=(t,f)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.4,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.4);o.start(t);o.stop(t+0.41);};const n=ac.currentTime;beep(n,880);beep(n+0.5,880);beep(n+1.0,1175);beep(n+1.5,1175);}catch(e){}}
 function pomoCard(todos){const p=window.pomo;
   const fopt=(sel)=>{
     const list=(todos||[]).slice();
@@ -782,7 +783,7 @@ function pomoCard(todos){const p=window.pomo;
 function pomoSync(){const p=window.pomo;const el=document.getElementById('pomo-time');if(!el)return;el.textContent=pomoFmt(p.left);const col=p.phase==='work'?'#2E75B6':'#1E9E6A';const ph=document.getElementById('pomo-phase');if(ph){ph.textContent=p.phase==='work'?'집중':'휴식';ph.style.color=col;}const C=2*Math.PI*52,total=(p.phase==='work'?p.work:p.brk)*60,ring=document.getElementById('pomo-ring');if(ring){ring.style.strokeDashoffset=C*(1-(total?p.left/total:0));ring.style.stroke=col;}const b=document.getElementById('pomo-toggle');if(b)b.textContent=p.running?'일시정지':'시작';const c=document.getElementById('pomo-count');if(c)c.textContent=p.done;const card=document.getElementById('pomo-card');if(card)card.style.borderColor=col+'33';}
 function pomoArm(){window.pomo.endAt=Date.now()+window.pomo.left*1000;}
 function pomoTick(){const p=window.pomo;if(!p.running)return;const rem=Math.round((p.endAt-Date.now())/1000);p.left=rem>0?rem:0;if(rem<=0){if(p.phase==='work'){p.done++;p.phase='break';p.left=p.brk*60;toast('집중 완료! 휴식하세요 ☕');}else{p.phase='work';p.left=p.work*60;toast('휴식 끝! 다시 집중 💪');}p.endAt=Date.now()+p.left*1000;pomoBeep();}pomoSync();}
-function pomoToggle(){const p=window.pomo;p.running=!p.running;if(p.running){if(p.left<=0)p.left=(p.phase==='work'?p.work:p.brk)*60;pomoArm();}pomoSync();}
+function pomoToggle(){const p=window.pomo;pomoAudio();p.running=!p.running;if(p.running){if(p.left<=0)p.left=(p.phase==='work'?p.work:p.brk)*60;pomoArm();}pomoSync();}
 function pomoSkip(){const p=window.pomo;if(p.phase==='work'){p.phase='break';p.left=p.brk*60;}else{p.phase='work';p.left=p.work*60;}if(p.running)pomoArm();pomoSync();}
 function pomoReset(){const p=window.pomo;p.running=false;p.phase='work';p.left=p.work*60;pomoSync();}
 function pomoSet(w,b){const p=window.pomo;p.work=w;p.brk=b;p.left=(p.phase==='work'?w:b)*60;if(p.running)pomoArm();pomoSync();}
