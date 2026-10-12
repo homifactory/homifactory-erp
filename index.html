@@ -1613,20 +1613,25 @@ async function delTodoFromModal(id){await sb.from('todos').delete().eq('id',id);
 let hrEdit=null;
 async function viewHR(){
   const {data:emps}=await sb.from('employees').select('*').eq('active',true).order('name');
+  const {data:resigned}=await sb.from('employees').select('id,name,dept,role,emp_no').eq('active',false).order('name');
   let editor='';
   if(hrEdit){const m=(emps||[]).find(e=>e.id===hrEdit);if(m){
     editor=`<div class="card" style="margin-top:12px;border:1px solid var(--blue)"><div style="font-weight:700;margin-bottom:4px">${esc(m.name)} 정보 수정</div>
     <div class="field two"><div><label>직급</label><input id="hr-role" value="${esc(m.role||'')}"></div><div><label>부서</label><select id="hr-dept">${['경영',...GROUPS.filter(g=>g!=='경영')].map(d=>`<option ${m.dept===d?'selected':''}>${d}</option>`).join('')}</select></div></div>
     <div class="field two"><div><label>사번</label><input id="hr-no" value="${esc(m.emp_no||'')}"></div><div><label>고용형태</label><select id="hr-type">${['정규직','계약직','프리랜서','임원'].map(t=>`<option ${m.emp_type===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="field"><label>연락처</label><input id="hr-phone" value="${esc(m.phone||'')}"></div>
-    <div class="act" style="margin-top:12px"><button class="ap" onclick="saveHR('${m.id}')">저장</button><button class="rj" onclick="hrEdit=null;render()">취소</button></div></div>`;}}
+    <div class="act" style="margin-top:12px;display:flex;gap:8px;align-items:center"><button class="ap" onclick="saveHR('${m.id}')">저장</button><button class="rj" onclick="hrEdit=null;render()">취소</button><button onclick="resignEmp('${m.id}')" style="margin-left:auto;background:#fff;border:1px solid #D64545;color:#D64545;border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer">퇴사 처리</button></div></div>`;}}
   const groups=['경영',...GROUPS.filter(g=>g!=='경영')];
   const extra=[...new Set((emps||[]).map(e=>e.dept).filter(d=>d&&!groups.includes(d)))];
   const org=[...groups,...extra].map(d=>{const mem=(emps||[]).filter(e=>e.dept===d);if(!mem.length)return '';
     return `<div class="deptcard"><div class="dh">${esc(d)}<span>${mem.length}명</span></div>${mem.map(m=>`<div class="mem"><div><b>${esc(m.name)}</b><span class="r">${esc(m.role||'')} · ${esc(m.emp_no||'')}</span></div><button onclick="hrEdit='${m.id}';render()">수정</button></div>`).join('')}</div>`;}).join('');
-  return `<h2 class="sec">직원 · 조직도 (${(emps||[]).length}명)</h2><div class="card">${org}</div>${editor}`;
+  const resignedRows=(resigned||[]).map(m=>`<div class="row"><div><div class="ttl">${esc(m.name)}</div><div class="meta">${esc(m.dept||'')}${m.role?' · '+esc(m.role):''}${m.emp_no?' · '+esc(m.emp_no):''}</div></div><button onclick="restoreEmp('${m.id}')" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer">복직</button></div>`).join('');
+  const resignedSection=(resigned&&resigned.length)?`<h2 class="sec" style="margin-top:22px">퇴사자 (${resigned.length}명)</h2><div class="card">${resignedRows}</div>`:'';
+  return `<h2 class="sec">직원 · 조직도 (${(emps||[]).length}명)</h2><div class="card">${org}</div>${editor}${resignedSection}`;
 }
 async function saveHR(id){await sb.from('employees').update({role:$('hr-role').value,dept:$('hr-dept').value,emp_no:$('hr-no').value,emp_type:$('hr-type').value,phone:$('hr-phone').value}).eq('id',id);hrEdit=null;toast('저장되었습니다');render();}
+async function resignEmp(id){const {data:m}=await sb.from('employees').select('name').eq('id',id).maybeSingle();const nm=m?m.name:'';if(!confirm((nm||'이 직원')+' 님을 퇴사 처리할까요?\n재직자 목록에서 제외되며, 아래 "퇴사자" 목록에서 복직할 수 있습니다.'))return;const {error}=await sb.from('employees').update({active:false}).eq('id',id);if(error){toast('퇴사 처리 실패: '+error.message);return;}hrEdit=null;toast((nm||'직원')+' 님 퇴사 처리됨');render();}
+async function restoreEmp(id){const {data:m}=await sb.from('employees').select('name').eq('id',id).maybeSingle();const nm=m?m.name:'';if(!confirm((nm||'이 직원')+' 님을 복직 처리할까요?'))return;const {error}=await sb.from('employees').update({active:true}).eq('id',id);if(error){toast('복직 처리 실패: '+error.message);return;}toast((nm||'직원')+' 님 복직 처리됨');render();}
 
 /* ---------- 팀 관리(관리자) ---------- */
 async function viewTeam(){
