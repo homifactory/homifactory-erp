@@ -989,8 +989,8 @@ async function viewHome(){
   const tl=groupTodoByField(todayItems.filter(t=>!todoChecked(t,ts.compSet)),ts.compSet);
   const cal=await calendarBlock();
   const _hideAP=(workspace==='id');
-  const _goals=(workspace!=='id')?await goalsBoardHtml():'';
-  const _goalM=(workspace!=='id')?await goalModalHtml():'';
+  const _goals='';
+  const _goalM='';
   return `${_goals}${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
     <div>${pomoCard(todayItems.filter(t=>!todoChecked(t,ts.compSet)))}</div>
