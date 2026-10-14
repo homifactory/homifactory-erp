@@ -744,7 +744,7 @@ function clockCard(a){
 window.pomo=window.pomo||{phase:'work',left:25*60,running:false,work:25,brk:5,done:0,focus1:null,focus2:null,focus3:null,focus4:null};
 function pomoFmt(s){s=Math.max(0,s|0);const m=Math.floor(s/60),x=s%60;return String(m).padStart(2,'0')+':'+String(x).padStart(2,'0');}
 function pomoAudio(){try{if(!window._audioCtx){window._audioCtx=new (window.AudioContext||window.webkitAudioContext)();}if(window._audioCtx.state==='suspended'&&window._audioCtx.resume)window._audioCtx.resume();return window._audioCtx;}catch(e){return null;}}
-function pomoBeep(){try{const ac=pomoAudio();if(!ac)return;const beep=(t,f)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.4,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.4);o.start(t);o.stop(t+0.41);};const n=ac.currentTime;beep(n,880);beep(n+0.5,880);beep(n+1.0,1175);beep(n+1.5,1175);}catch(e){}}
+function pomoBeep(){try{var ac=pomoAudio();if(!ac)return;var master=ac.createGain();master.gain.value=0.9;master.connect(ac.destination);var tone=function(t,f,d){var o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f;o.connect(g);g.connect(master);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.6,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.start(t);o.stop(t+d+0.03);};var t=ac.currentTime+0.02;for(var r=0;r<3;r++){for(var i=0;i<7;i++){tone(t,i%2?988:784,0.09);t+=0.09;}t+=0.18;}}catch(e){}}
 function pomoCard(todos){const p=window.pomo;
   const fopt=(sel)=>{
     const list=(todos||[]).slice();
