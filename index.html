@@ -1390,7 +1390,7 @@ function applicableTodayRaw(t){
   if(t.start_date && t.start_date>todayStr())return false;
   if(t.recur_type==='daily')return true;
   if(t.recur_type==='weekly')return t.weekday===todayWeekday();
-  if(t.recur_type==='monthly')return t.weekday===new Date().getDate();
+  if(t.recur_type==='monthly'){var _n=new Date();var _dim=new Date(_n.getFullYear(),_n.getMonth()+1,0).getDate();return _n.getDate()===Math.min(t.weekday,_dim);}
   return !t.done || t.done_date===todayStr();
 }
 function applicableToday(t){return applicableTodayRaw(t) && t.snooze_date!==todayStr();}
