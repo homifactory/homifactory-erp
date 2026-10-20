@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build: login-basic-scope 2026-08-05a -->
+<!-- build: settle-cash-default 2026-08-11a -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -453,20 +453,25 @@ function projExpModalHtml(code){
 function projModalHtml(p){
   const isNew=!p.id;
   const stOpts=['진행중','종료','정산완료'].map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('');
+  const cats=['시딩마케팅','엔터마케팅','틱톡라이브','기타'];
+  const catOpts='<option value="">— 분야 선택 —</option>'+cats.map(c=>`<option ${p.category===c?'selected':''}>${c}</option>`).join('');
   return `<div class="modalbg" onclick="if(event.target===this)closeProjModal()"><div class="modalbox">
     <div style="font-weight:800;font-size:16px;margin-bottom:2px">${isNew?'프로젝트 등록':'프로젝트 수정'}</div>
     <div class="meta" style="margin-bottom:6px">2주 단위 단기 프로젝트를 등록하고 예산을 설정하세요</div>
     <input type="hidden" id="pj-code" value="${esc(p.code||'')}">
     <div class="field"><label>프로젝트명</label><input id="pj-name" value="${esc(p.name||'')}" placeholder="예: 8월 뷰티 크리에이터 캠페인"></div>
     <div class="field two"><div><label>시작일</label><input id="pj-start" type="date" value="${p.start_date||''}"></div><div><label>종료일</label><input id="pj-end" type="date" value="${p.end_date||''}"></div></div>
-    <div class="field two"><div><label>총 예산(매출, 원)</label><input id="pj-budget" type="number" value="${p.budget!=null?p.budget:''}" placeholder="0"></div><div><label>상태</label><select id="pj-status">${stOpts}</select></div></div>
+    <div class="field two"><div><label>매출(원)</label><input id="pj-budget" type="number" value="${p.budget!=null?p.budget:''}" placeholder="0"></div><div><label>상태</label><select id="pj-status">${stOpts}</select></div></div>
+    <div class="field two"><div><label>분야</label><select id="pj-category">${catOpts}</select></div><div><label>순수익(원)</label><input id="pj-netprofit" type="number" value="${p.net_profit!=null?p.net_profit:''}" placeholder="0"></div></div>
+    <div class="field"><label>메모</label><textarea id="pj-memo" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:9px" placeholder="프로젝트 상세 내용을 자유롭게 기재하세요">${esc(p.memo||'')}</textarea></div>
     <div style="display:flex;gap:8px;margin-top:18px">${isNew?'':`<button onclick="delProject('${p.id}','${esc(p.code)}')" style="background:#fff;border:1px solid var(--red);color:var(--red);border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer">삭제</button>`}<button onclick="closeProjModal()" style="flex:1;background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:11px;font-weight:700;cursor:pointer">취소</button><button onclick="saveProject('${p.id||''}')" style="flex:1;background:linear-gradient(180deg,#3B78EE,var(--blue-strong));color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer">저장</button></div>
   </div></div>`;
 }
 async function saveProject(id){
   const name=$('pj-name').value.trim();if(!name){toast('프로젝트명을 입력하세요');return;}
   let code=$('pj-code').value.trim();if(!code){code='P'+Date.now().toString(36).toUpperCase();}
-  const rec={code:code,name:name,start_date:$('pj-start').value||null,end_date:$('pj-end').value||null,budget:Number($('pj-budget').value||0),status:$('pj-status').value};
+  const _np=$('pj-netprofit')?$('pj-netprofit').value:'';
+  const rec={code:code,name:name,start_date:$('pj-start').value||null,end_date:$('pj-end').value||null,budget:Number($('pj-budget').value||0),status:$('pj-status').value,category:($('pj-category')&&$('pj-category').value)||null,net_profit:_np===''?null:Number(_np),memo:($('pj-memo')&&$('pj-memo').value.trim())||null};
   let error;
   if(id){({error}=await sb.from('projects').update(rec).eq('id',id));}
   else{rec.created_by=me.id;({error}=await sb.from('projects').insert(rec));}
@@ -508,7 +513,7 @@ async function openMailInline(id,el){
   var m=await r.json();var h={};((m.payload&&m.payload.headers)||[]).forEach(function(x){h[x.name.toLowerCase()]=x.value;});
   try{if((m.labelIds||[]).indexOf('UNREAD')>-1){fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+id+'/modify',{method:'POST',headers:{'Authorization':'Bearer '+window.gToken,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['UNREAD']})}).then(function(){if(typeof fetchMailUnread==='function')fetchMailUnread();});if(el){var _bd=el.querySelector('.badge');if(_bd)_bd.remove();var _tt=el.querySelector('.ttl');if(_tt)_tt.style.fontWeight='500';}}}catch(_){}
   var b=extractMailBody(m.payload);
-  var body=b.html?('<iframe srcdoc="'+mailAttr('<base target=\"_blank\">'+b.html)+'" sandbox="allow-popups allow-popups-to-escape-sandbox" style="width:100%;height:calc(100vh - 330px);border:none;background:#fff;border-radius:8px"></iframe>'):('<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.6;color:var(--ink);margin:0">'+esc(b.text||(m.snippet||'(내용 없음)'))+'</pre>');
+  var body=b.html?('<iframe srcdoc="'+mailAttr('<base target="_blank">'+b.html)+'" sandbox="allow-popups allow-popups-to-escape-sandbox" style="width:100%;height:calc(100vh - 330px);border:none;background:#fff;border-radius:8px"></iframe>'):('<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.6;color:var(--ink);margin:0">'+esc(b.text||(m.snippet||'(내용 없음)'))+'</pre>');
   if(pane)pane.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-weight:700;font-size:17px;margin-bottom:4px;word-break:break-word">'+esc(h.subject||'(제목 없음)')+'</div><div class="meta">'+esc(h.from||'')+(h.date?' · '+esc(h.date):'')+'</div></div><button onclick="openCompanyMail()" style="flex:0 0 auto;background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Gmail에서 열기 ↗</button></div><div style="border-top:1px solid var(--line);margin-top:12px;padding-top:14px">'+body+'</div>';
 }
 async function trashMail(id,el){
@@ -554,7 +559,10 @@ async function viewDrive(){
   var body=(folderRows+fileRows)||'<div class="empty">이 폴더가 비어 있습니다</div>';
   return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;gap:10px;flex-wrap:wrap"><div class="meta" style="font-size:14px">${crumb}</div><div style="display:flex;gap:8px"><button onclick="newDriveFolder()" style="background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ 폴더</button><label class="ap" style="cursor:pointer;display:inline-flex;align-items:center">파일 업로드<input type="file" multiple style="display:none" onchange="uploadDriveFiles(this.files)"></label></div></div><div id="drive-drop" ondragover="driveDragOver(event)" ondragleave="driveDragLeave(event)" ondrop="driveDrop(event)" class="card" style="max-width:820px">${body}<div class="meta" style="text-align:center;margin-top:10px;font-size:12px">⬆ 파일을 이 영역에 끌어다 놓아도 업로드됩니다</div></div>`;
 }
-function driveDragOver(e){e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';var z=document.getElementById('drive-drop');if(z)z.style.outline='2px dashed var(--blue)';}function driveDragLeave(e){var z=document.getElementById('drive-drop');if(z&&!z.contains(e.relatedTarget))z.style.outline='';}function driveDrop(e){e.preventDefault();var z=document.getElementById('drive-drop');if(z)z.style.outline='';var f=e.dataTransfer&&e.dataTransfer.files;if(f&&f.length)uploadDriveFiles(f);}async function newDriveFolder(){
+function driveDragOver(e){e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';var z=document.getElementById('drive-drop');if(z)z.style.outline='2px dashed var(--blue)';}
+function driveDragLeave(e){var z=document.getElementById('drive-drop');if(z&&!z.contains(e.relatedTarget))z.style.outline='';}
+function driveDrop(e){e.preventDefault();var z=document.getElementById('drive-drop');if(z)z.style.outline='';var f=e.dataTransfer&&e.dataTransfer.files;if(f&&f.length)uploadDriveFiles(f);}
+async function newDriveFolder(){
   var name=prompt('폴더 이름을 입력하세요');if(!name)return;name=name.trim();if(!name)return;if(name.indexOf('/')>-1){toast('폴더 이름에 / 는 쓸 수 없습니다');return;}
   var path=driveFolder?driveFolder+'/'+name:name;
   var r=await sb.from('drive_folders').insert({path:path,name:name,parent:driveFolder||'',created_by:me.id});
@@ -845,6 +853,11 @@ function goalDeptToggle(key){goalCollapsed[key]=!goalCollapsed[key];render();}
 function canGoals(){return !!(me&&['윤호성','배수빈','최성용'].indexOf(me.name)>-1);}
 function goalFmt(n,unit){
   n=Number(n||0);unit=unit||'';
+  if(unit==='원'){
+    if(n>=100000000){var e=n/100000000;return (Number.isInteger(e)?e:parseFloat(e.toFixed(2)))+'억';}
+    if(n>=10000){var m=n/10000;return (Number.isInteger(m)?m:parseFloat(m.toFixed(2)))+'만원';}
+    return n.toLocaleString()+'원';
+  }
   if(unit===''){
     if(n>=1000000){var v=n/1000000;return (Number.isInteger(v)?v:parseFloat(v.toFixed(2)))+'M';}
     if(n>=1000){var w=n/1000;return (Number.isInteger(w)?w:parseFloat(w.toFixed(1)))+'K';}
@@ -1008,7 +1021,7 @@ async function viewHome(){
   const _goalM='';
   let _projTop='';
   if(canFin()&&workspace!=='id'){
-    const {data:_pj}=await sb.from('projects').select('id,code,name,status,start_date,end_date,budget').eq('status','진행중').neq('code','OVERHEAD').order('end_date',{ascending:true});window._projCache=window._projCache||{};(_pj||[]).forEach(p=>{window._projCache[p.code]=p;});
+    const {data:_pj}=await sb.from('projects').select('id,code,name,status,start_date,end_date,budget,category,net_profit,memo').eq('status','진행중').neq('code','OVERHEAD').order('end_date',{ascending:true});window._projCache=window._projCache||{};(_pj||[]).forEach(p=>{window._projCache[p.code]=p;});
     const _ex=await sb.from('expenses').select('project_code,amount');
     const _sp={};(_ex.data||[]).forEach(e=>{_sp[e.project_code]=(_sp[e.project_code]||0)+(+e.amount||0);});
     const _td=new Date(todayStr()+'T00:00:00');
@@ -1019,11 +1032,13 @@ async function viewHome(){
       const spent=_sp[p.code]||0;const bud=+p.budget||0;const bp=bud>0?Math.round(spent/bud*1000)/10:null;const mg=bud-spent;
       const bc=sp==null?'#3B78EE':(dl!=null&&dl<0?'#D64545':(sp>85?'#E8A13B':'#3B78EE'));
       return `<div style="padding:13px 2px;${idx?'border-top:1px solid var(--line)':''}">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-weight:800;font-size:14.5px;min-width:0;cursor:pointer;word-break:break-word" onclick="openProjModal('${p.code}')">${esc(p.name)}</div>${dl!=null?`<span class="meta" style="white-space:nowrap;font-weight:700;color:${dl<0?'#D64545':(dl<=3?'#E8A300':'var(--muted)')}">D${dl>=0?'-'+dl:'+'+(-dl)}</span>`:''}</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-weight:800;font-size:14.5px;min-width:0;cursor:pointer;word-break:break-word" onclick="openProjModal('${p.code}')">${esc(p.name)}${p.category?` <span style="font-size:10.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);padding:2px 7px;border-radius:6px;margin-left:4px;white-space:nowrap">${esc(p.category)}</span>`:''}</div>${dl!=null?`<span class="meta" style="white-space:nowrap;font-weight:700;color:${dl<0?'#D64545':(dl<=3?'#E8A300':'var(--muted)')}">D${dl>=0?'-'+dl:'+'+(-dl)}</span>`:''}</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:10px;color:var(--muted)"><span>진척(기간)${di?' · '+di:''}</span><span style="font-weight:700;color:var(--ink)">${sp!=null?sp+'%':'—'}</span></div>
         <div style="height:9px;border-radius:6px;background:var(--bg);overflow:hidden;margin-top:5px"><div style="height:100%;width:${sp!=null?Math.min(sp,100):0}%;background:${bc}"></div></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:10px"><span class="meta">예산 집행 ${spent.toLocaleString()} / ${bud.toLocaleString()}원</span><span style="font-weight:700;color:${bp!=null&&bp>85?'#D64545':'var(--ink)'}">${bp!=null?bp+'%':'—'}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="meta">예상 마진</span><span style="font-weight:700;color:${mg<0?'#D64545':'#16A06B'}">${mg.toLocaleString()}원</span></div>
+        ${p.net_profit!=null&&p.net_profit!==''?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="meta">순수익(입력)</span><span style="font-weight:700;color:${+p.net_profit<0?'#D64545':'#16A06B'}">${(+p.net_profit).toLocaleString()}원</span></div>`:''}
+        ${p.memo?`<div class="meta" style="font-size:11.5px;margin-top:8px;white-space:pre-wrap;word-break:break-word">${esc(p.memo)}</div>`:''}
       </div>`;
     }).join('');
     var _pcol=false;try{_pcol=localStorage.getItem('homi_proj_collapsed')==='1'}catch(e){}
@@ -1274,7 +1289,13 @@ async function decideDoc(id,ok){
       var who=empMap[doc.employee_id]||'';
       var sent=await sendMail('support@homifactory.com','[지출결의 최종 승인] '+(doc.summary||''),'지출 결의가 대표 3인 전원 승인되었습니다.\n\n신청자: '+who+'\n내용: '+(doc.summary||'')+'\n승인: '+APPROVERS.join(', ')+'\n승인일시: '+new Date().toLocaleString('ko-KR'));
       toast(sent?'최종 승인 완료 · support@ 메일 발송됨':'최종 승인 완료(메일 발송 실패)');
-    }else if(doc.doc_type==='구매 상신'){const {data:pj}=await sb.from('employees').select('id').eq('name','라정선').maybeSingle();if(pj){await sb.from('todos').insert({employee_id:pj.id,content:'[구매 요청] '+(doc.summary||''),recur_type:'project',priority:'높음'});}var who=empMap[doc.employee_id]||'';var pl=doc.payload||{};var NL=String.fromCharCode(10);var sent=await sendMail('support@homifactory.com','[구매 상신 최종 승인] '+(doc.summary||''),'구매 상신이 대표 3인 전원 승인되었습니다.'+NL+NL+'신청자: '+who+NL+'품목: '+(pl.item||'')+NL+'수량: '+(pl.qty!=null?pl.qty:'')+NL+'예상 금액: '+(pl.amount!=null?Number(pl.amount).toLocaleString()+'원':'')+NL+'구매처: '+(pl.vendor||'')+NL+'결제수단: '+(pl.card||'')+NL+'사유: '+(pl.reason||'')+NL+NL+'승인: '+APPROVERS.join(', ')+NL+'승인일시: '+new Date().toLocaleString('ko-KR')+NL+NL+'※ 구매 담당: 라정선');toast(sent?'최종 승인(3인 전원) · 라정선 전달 · support@ 메일 발송됨':'최종 승인(3인 전원) · 라정선 전달(메일 발송 실패)');}else{toast('최종 승인 완료 (대표 3인 전원)');}
+    }else if(doc.doc_type==='구매 상신'){
+      const {data:pj}=await sb.from('employees').select('id').eq('name','라정선').maybeSingle();
+      if(pj){await sb.from('todos').insert({employee_id:pj.id,content:'[구매 요청] '+(doc.summary||''),recur_type:'project',priority:'높음'});}
+      var who=empMap[doc.employee_id]||'';var pl=doc.payload||{};
+      var sent=await sendMail('support@homifactory.com','[구매 상신 최종 승인] '+(doc.summary||''),'구매 상신이 대표 3인 전원 승인되었습니다.\n\n신청자: '+who+'\n품목: '+(pl.item||'')+'\n수량: '+(pl.qty!=null?pl.qty:'')+'\n예상 금액: '+(pl.amount!=null?Number(pl.amount).toLocaleString()+'원':'')+'\n구매처: '+(pl.vendor||'')+'\n결제수단: '+(pl.card||'')+'\n사유: '+(pl.reason||'')+'\n\n승인: '+APPROVERS.join(', ')+'\n승인일시: '+new Date().toLocaleString('ko-KR')+'\n\n※ 구매 담당: 라정선');
+      toast(sent?'최종 승인(3인 전원) · 라정선 전달 · support@ 메일 발송됨':'최종 승인(3인 전원) · 라정선 전달(메일 발송 실패)');
+    }else{toast('최종 승인 완료 (대표 3인 전원)');}
     await refreshBadges();render();return;
   }
   await sb.from('documents').update({status:'승인'}).eq('id',id);
@@ -1839,14 +1860,18 @@ async function viewArchive(){
   const {data:arc}=await sb.from('archives').select('*').order('sort_order',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});
   const {data:emps}=await sb.from('emp_dir').select('id,name').order('name');
   const cats=['TIKTOK','그룹라이브','BENEFIT','마케팅','공연','매니지먼트','업무','기타'];
-  const rowHtml=(a,depth)=>{const vt=(a.visibility&&a.visibility!=='전체')?`<span class="av-tag">${a.visibility==='부서'?'부서 한정':'지정 공개'}</span>`:'';const conn=depth?`<span class="av-conn">└</span>`:'';const ttl=a.url?`<a href="${esc(a.url)}" target="_blank">${esc(a.title)}</a>`:esc(a.title);const chip=a.file_path?`<button class="av-chip" onclick="openArchiveFile('${a.file_path}')">📎 ${esc(a.file_name||'파일')}</button>`:'';return `<div class="av-row${depth?' av-child':''}" draggable="true" data-aid="${a.id}" data-acat="${esc(a.category||'기타')}" data-apar="${a.parent_id||''}" ondragstart="arcDragStart(event)" ondragover="arcDragOver(event)" ondragleave="arcDragLeave(event)" ondrop="arcDrop(event)" ondragend="arcDragEnd(event)"><span class="av-handle" title="드래그로 순서 변경">⠿</span>${conn}<div class="av-main"><div class="av-title">${ttl}${chip}${vt}</div>${a.note?`<div class="av-note">${esc(a.note)}</div>`:''}</div><div class="av-side"><span class="av-date">${(a.created_at||'').slice(0,10)}</span><button class="av-act" onclick="startArcEdit('${a.id}')">수정</button><button class="av-act del" onclick="delArchive('${a.id}')">×</button></div></div>`;};  const childrenOf={};(arc||[]).forEach(a=>{if(a.parent_id){(childrenOf[a.parent_id]=childrenOf[a.parent_id]||[]).push(a);}});  const renderItem=(a)=>rowHtml(a,0)+((childrenOf[a.id]||[]).map(ch=>rowHtml(ch,1)).join(''));
-  const byCat={};(arc||[]).forEach(a=>{if(a.parent_id)return;const c=a.category||'기타';(byCat[c]=byCat[c]||[]).push(a);});  (arc||[]).forEach(a=>{if(a.parent_id&&!(arc||[]).some(p=>p.id===a.parent_id)){const c=a.category||'기타';(byCat[c]=byCat[c]||[]).push(a);}});
+  const rowHtml=(a,depth)=>{const vt=(a.visibility&&a.visibility!=='전체')?`<span class="av-tag">${a.visibility==='부서'?'부서 한정':'지정 공개'}</span>`:'';const conn=depth?`<span class="av-conn">└</span>`:'';const ttl=a.url?`<a href="${esc(a.url)}" target="_blank">${esc(a.title)}</a>`:esc(a.title);const chip=a.file_path?`<button class="av-chip" onclick="openArchiveFile('${a.file_path}')">📎 ${esc(a.file_name||'파일')}</button>`:'';return `<div class="av-row${depth?' av-child':''}" draggable="true" data-aid="${a.id}" data-acat="${esc(a.category||'기타')}" data-apar="${a.parent_id||''}" ondragstart="arcDragStart(event)" ondragover="arcDragOver(event)" ondragleave="arcDragLeave(event)" ondrop="arcDrop(event)" ondragend="arcDragEnd(event)"><span class="av-handle" title="드래그로 순서 변경">⠿</span>${conn}<div class="av-main"><div class="av-title">${ttl}${chip}${vt}</div>${a.note?`<div class="av-note">${esc(a.note)}</div>`:''}</div><div class="av-side"><span class="av-date">${(a.created_at||'').slice(0,10)}</span><button class="av-act" onclick="startArcEdit('${a.id}')">수정</button><button class="av-act del" onclick="delArchive('${a.id}')">×</button></div></div>`;};
+  const childrenOf={};(arc||[]).forEach(a=>{if(a.parent_id){(childrenOf[a.parent_id]=childrenOf[a.parent_id]||[]).push(a);}});
+  const renderItem=(a)=>rowHtml(a,0)+((childrenOf[a.id]||[]).map(ch=>rowHtml(ch,1)).join(''));
+  const byCat={};(arc||[]).forEach(a=>{if(a.parent_id)return;const c=a.category||'기타';(byCat[c]=byCat[c]||[]).push(a);});
+  (arc||[]).forEach(a=>{if(a.parent_id&&!(arc||[]).some(p=>p.id===a.parent_id)){const c=a.category||'기타';(byCat[c]=byCat[c]||[]).push(a);}});
   const catOrder=[...cats.filter(c=>byCat[c]),...Object.keys(byCat).filter(c=>!cats.includes(c))];
   const arows=catOrder.length?catOrder.map(c=>`<div class="av-group"><div class="av-ghead"><span class="av-bar"></span>${esc(c)}<span class="av-gcount">${byCat[c].length}</span></div>${byCat[c].map(renderItem).join('')}</div>`).join(''):'<div class="empty">등록된 자료가 없습니다</div>';
   const editing=arcEdit?(arc||[]).find(a=>a.id===arcEdit):null;
   const catOptsE=cats.map(c=>`<option ${editing&&editing.category===c?'selected':''}>${c}</option>`).join('');
   const impVal=editing?(editing.impact||3):3;
-  const impOpts=[3,2,1].map(n=>`<option value="${n}" ${impVal===n?'selected':''}>${'★'.repeat(n)}</option>`).join('');  const editHasKids=editing?((arc||[]).some(a=>a.parent_id===editing.id)):false;const curParent=editing&&editing.parent_id?editing.parent_id:'';const _porder=['TIKTOK','그룹라이브','마케팅','매니지먼트','기타'];const _prank=function(c){var i=_porder.indexOf(c);return i<0?_porder.length:i;};const parentOpts=(arc||[]).filter(a=>!a.parent_id&&(!editing||a.id!==editing.id)).sort(function(a,b){return _prank(a.category||'기타')-_prank(b.category||'기타');}).map(a=>`<option value="${a.id}" ${curParent===a.id?'selected':''}>[${esc(a.category||'기타')}] ${esc(a.title)}</option>`).join('');
+  const impOpts=[3,2,1].map(n=>`<option value="${n}" ${impVal===n?'selected':''}>${'★'.repeat(n)}</option>`).join('');
+  const editHasKids=editing?((arc||[]).some(a=>a.parent_id===editing.id)):false;const curParent=editing&&editing.parent_id?editing.parent_id:'';const _porder=['TIKTOK','그룹라이브','마케팅','매니지먼트','기타'];const _prank=function(c){var i=_porder.indexOf(c);return i<0?_porder.length:i;};const parentOpts=(arc||[]).filter(a=>!a.parent_id&&(!editing||a.id!==editing.id)).sort(function(a,b){return _prank(a.category||'기타')-_prank(b.category||'기타');}).map(a=>`<option value="${a.id}" ${curParent===a.id?'selected':''}>[${esc(a.category||'기타')}] ${esc(a.title)}</option>`).join('');
   const visVal=editing?(editing.visibility||'전체'):'전체';
   const visOpts=[['전체','전체 공개'],['부서','특정 부서만'],['지정','특정 사람만']].map(o=>`<option value="${o[0]}" ${visVal===o[0]?'selected':''}>${o[1]}</option>`).join('');
   const curDepts=(editing&&editing.target_depts)?editing.target_depts:[];
@@ -1856,7 +1881,8 @@ async function viewArchive(){
   const modal=arcModal?`<div class="modalbg" onclick="if(event.target===this){arcModal=false;arcEdit=null;render()}"><div class="modalbox">
     <div style="font-weight:700;font-size:16px;margin-bottom:6px">${editing?'자료 · 메뉴얼 수정':'자료 · 메뉴얼 추가'}</div>
     <div class="field"><label>제목</label><input id="ar-title" placeholder="제목" value="${editing?esc(editing.title):''}"></div>
-    <div class="field"><label>분야(부서)</label><select id="ar-cat">${catOptsE}</select></div>    <div class="field"><label>상위 문서 (선택 · 하위로 넣기)</label><select id="ar-parent" ${editHasKids?'disabled':''}><option value="">— 최상위 문서 —</option>${parentOpts}</select>${editHasKids?'<div class="meta" style="margin-top:4px">하위 문서가 있는 항목은 상위로만 둘 수 있습니다</div>':''}</div>
+    <div class="field"><label>분야(부서)</label><select id="ar-cat">${catOptsE}</select></div>
+    <div class="field"><label>상위 문서 (선택 · 하위로 넣기)</label><select id="ar-parent" ${editHasKids?'disabled':''}><option value="">— 최상위 문서 —</option>${parentOpts}</select>${editHasKids?'<div class="meta" style="margin-top:4px">하위 문서가 있는 항목은 상위로만 둘 수 있습니다</div>':''}</div>
     <div class="field"><label>링크</label><input id="ar-url" placeholder="https://" value="${editing&&editing.url?esc(editing.url):''}"></div>
     <div class="field"><label>파일 첨부 (PPT·PDF·Excel 등)${editing&&editing.file_name?` · 현재: ${esc(editing.file_name)}`:''}</label><input type="file" id="ar-file" accept=".ppt,.pptx,.pdf,.xls,.xlsx,.doc,.docx,.csv,image/*"></div>
     <div class="field"><label>공개 대상</label><select id="ar-vis" onchange="arcVis()">${visOpts}</select></div>
@@ -1882,7 +1908,8 @@ async function addArchive(){
   let file_path=null,file_name=null;
   const fi=$('ar-file');
   if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();file_path=`${me.id}/${Date.now()}.${ext}`;file_name=f.name;const up=await sb.storage.from('archive-files').upload(file_path,f,{contentType:f.type});if(up.error){toast('파일 업로드 실패: '+up.error.message);return;}}
-  const _par=($('ar-parent')&&$('ar-parent').value)?$('ar-parent').value:null;  const {error}=await sb.from('archives').insert({title:t,category:$('ar-cat').value,impact:Number(($('ar-impact')?$('ar-impact').value:3)||3),url:$('ar-url').value,note:$('ar-note').value,file_path,file_name,visibility:vis,target_depts,target_people,parent_id:_par,sort_order:0,created_by:me.id});
+  const _par=($('ar-parent')&&$('ar-parent').value)?$('ar-parent').value:null;
+  const {error}=await sb.from('archives').insert({title:t,category:$('ar-cat').value,impact:Number(($('ar-impact')?$('ar-impact').value:3)||3),url:$('ar-url').value,note:$('ar-note').value,file_path,file_name,visibility:vis,target_depts,target_people,parent_id:_par,sort_order:0,created_by:me.id});
   if(error){toast('오류: '+error.message);return;}
   arcModal=false;toast('자료가 추가되었습니다');render();
 }
@@ -1893,7 +1920,8 @@ async function saveArchive(){
   let target_depts=null,target_people=null;
   if(vis==='부서'){target_depts=[...document.querySelectorAll('.ar-dept:checked')].map(c=>c.value);if(!target_depts.length){toast('공개할 부서를 선택하세요');return;}}
   if(vis==='지정'){target_people=[...document.querySelectorAll('.ar-person:checked')].map(c=>c.value);if(!target_people.length){toast('공개할 사람을 선택하세요');return;}}
-  const _par=($('ar-parent')&&$('ar-parent').value)?$('ar-parent').value:null;  const upd={title:t,category:$('ar-cat').value,impact:Number(($('ar-impact')?$('ar-impact').value:3)||3),url:$('ar-url').value,note:$('ar-note').value,visibility:vis,target_depts,target_people,parent_id:_par};
+  const _par=($('ar-parent')&&$('ar-parent').value)?$('ar-parent').value:null;
+  const upd={title:t,category:$('ar-cat').value,impact:Number(($('ar-impact')?$('ar-impact').value:3)||3),url:$('ar-url').value,note:$('ar-note').value,visibility:vis,target_depts,target_people,parent_id:_par};
   const fi=$('ar-file');
   if(fi&&fi.files&&fi.files[0]){const f=fi.files[0];const ext=(f.name.split('.').pop()||'dat').toLowerCase();const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('archive-files').upload(path,f,{contentType:f.type});if(up.error){toast('파일 업로드 실패: '+up.error.message);return;}upd.file_path=path;upd.file_name=f.name;}
   const {error}=await sb.from('archives').update(upd).eq('id',arcEdit);
@@ -1901,7 +1929,14 @@ async function saveArchive(){
   arcModal=false;arcEdit=null;toast('수정되었습니다');render();
 }
 async function openArchiveFile(path){const isHtml=/\.html?$/i.test(path);const w=isHtml?window.open('','_blank'):null;const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){if(w)w.close();toast('파일을 열 수 없습니다');return;}if(isHtml){try{const res=await fetch(data.signedUrl);const html=await res.text();const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);if(w){w.location.href=url;}else{window.open(url,'_blank');}setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){if(w){w.location.href=data.signedUrl;}else{window.open(data.signedUrl,'_blank');}}return;}window.open(data.signedUrl,'_blank');}
-async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}window._arcDrag=null;function arcDragStart(e){const row=e.target.closest('.av-row');if(!row)return;window._arcDrag={id:row.getAttribute('data-aid'),cat:row.getAttribute('data-acat'),par:row.getAttribute('data-apar')||''};try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',window._arcDrag.id);}catch(_){}}function arcDragOver(e){const d=window._arcDrag;if(!d)return;const row=e.target.closest('.av-row');if(!row)return;if(row.getAttribute('data-acat')===d.cat&&(row.getAttribute('data-apar')||'')===d.par){e.preventDefault();row.style.outline='2px solid var(--blue)';}}function arcDragLeave(e){const row=e.target.closest('.av-row');if(row)row.style.outline='';}function arcDragEnd(e){document.querySelectorAll('.av-row').forEach(r=>r.style.outline='');window._arcDrag=null;}async function arcDrop(e){e.preventDefault();const d=window._arcDrag;document.querySelectorAll('.av-row').forEach(r=>r.style.outline='');if(!d)return;const row=e.target.closest('.av-row');if(!row)return;const tid=row.getAttribute('data-aid');const tcat=row.getAttribute('data-acat');const tpar=row.getAttribute('data-apar')||'';if(tcat!==d.cat||tpar!==d.par||tid===d.id)return;await arcReorder(d.id,tid,d.cat,d.par);}async function arcReorder(dragId,targetId,cat,par){const {data:arc}=await sb.from('archives').select('id,category,parent_id,sort_order,created_at').order('sort_order',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});let sibs=(arc||[]).filter(a=>(a.category||'기타')===cat&&(a.parent_id||'')===(par||''));const di=sibs.findIndex(a=>a.id===dragId);if(di<0)return;const dragged=sibs.splice(di,1)[0];let ti=sibs.findIndex(a=>a.id===targetId);if(ti<0)ti=sibs.length;sibs.splice(ti,0,dragged);for(let i=0;i<sibs.length;i++){await sb.from('archives').update({sort_order:i+1}).eq('id',sibs[i].id);}toast('순서가 변경되었습니다');render();}
+async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
+window._arcDrag=null;
+function arcDragStart(e){const row=e.target.closest('.av-row');if(!row)return;window._arcDrag={id:row.getAttribute('data-aid'),cat:row.getAttribute('data-acat'),par:row.getAttribute('data-apar')||''};try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',window._arcDrag.id);}catch(_){}}
+function arcDragOver(e){const d=window._arcDrag;if(!d)return;const row=e.target.closest('.av-row');if(!row)return;if(row.getAttribute('data-acat')===d.cat&&(row.getAttribute('data-apar')||'')===d.par){e.preventDefault();row.style.outline='2px solid var(--blue)';}}
+function arcDragLeave(e){const row=e.target.closest('.av-row');if(row)row.style.outline='';}
+function arcDragEnd(e){document.querySelectorAll('.av-row').forEach(r=>r.style.outline='');window._arcDrag=null;}
+async function arcDrop(e){e.preventDefault();const d=window._arcDrag;document.querySelectorAll('.av-row').forEach(r=>r.style.outline='');if(!d)return;const row=e.target.closest('.av-row');if(!row)return;const tid=row.getAttribute('data-aid');const tcat=row.getAttribute('data-acat');const tpar=row.getAttribute('data-apar')||'';if(tcat!==d.cat||tpar!==d.par||tid===d.id)return;await arcReorder(d.id,tid,d.cat,d.par);}
+async function arcReorder(dragId,targetId,cat,par){const {data:arc}=await sb.from('archives').select('id,category,parent_id,sort_order,created_at').order('sort_order',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});let sibs=(arc||[]).filter(a=>(a.category||'기타')===cat&&(a.parent_id||'')===(par||''));const di=sibs.findIndex(a=>a.id===dragId);if(di<0)return;const dragged=sibs.splice(di,1)[0];let ti=sibs.findIndex(a=>a.id===targetId);if(ti<0)ti=sibs.length;sibs.splice(ti,0,dragged);for(let i=0;i<sibs.length;i++){await sb.from('archives').update({sort_order:i+1}).eq('id',sibs[i].id);}toast('순서가 변경되었습니다');render();}
 
 /* ---------- 마이페이지 ---------- */
 async function viewMyPage(){
