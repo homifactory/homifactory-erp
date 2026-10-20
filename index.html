@@ -428,7 +428,7 @@ function exportExpensesCSV(){
 }
 function openProjModal(code){const c=(window._projCache||{})[code];window._projModal=c?Object.assign({},c):{status:'진행중'};render();}
 function closeProjModal(){window._projModal=null;render();}
-function toggleProjCollapse(){var b=document.getElementById('proj-body'),c=document.getElementById('proj-chev');if(!b)return;var hide=b.style.display!=='none';b.style.display=hide?'none':'';if(c)c.textContent=hide?'▸':'▾';}
+function toggleProjCollapse(){var b=document.getElementById('proj-body'),c=document.getElementById('proj-chev');if(!b)return;var hide=b.style.display!=='none';b.style.display=hide?'none':'';if(c)c.textContent=hide?'▸':'▾';try{localStorage.setItem('homi_proj_collapsed',hide?'1':'0')}catch(e){}}
 function openProjExp(code){window._projExpModal=code;render();}
 function closeProjExp(){window._projExpModal=null;render();}
 function projExpModalHtml(code){
@@ -1026,7 +1026,8 @@ async function viewHome(){
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="meta">예상 마진</span><span style="font-weight:700;color:${mg<0?'#D64545':'#16A06B'}">${mg.toLocaleString()}원</span></div>
       </div>`;
     }).join('');
-    _projTop=`<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 class="sec" style="margin:0;cursor:pointer;user-select:none" onclick="toggleProjCollapse()"><span id="proj-chev">▾</span> 🚀 진행 중 프로젝트 <span style="color:var(--blue)">${(_pj||[]).length}</span></h2><button onclick="openProjModal('')" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;flex:0 0 auto">＋ 프로젝트</button></div><div id="proj-body">${_pc?`<div class="card">${_pc}</div>`:`<div class="card"><div class="empty">진행 중인 프로젝트가 없습니다</div></div>`}</div></div>`;
+    var _pcol=false;try{_pcol=localStorage.getItem('homi_proj_collapsed')==='1'}catch(e){}
+    _projTop=`<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 class="sec" style="margin:0;cursor:pointer;user-select:none" onclick="toggleProjCollapse()"><span id="proj-chev">${_pcol?'▸':'▾'}</span> 🚀 진행 중 프로젝트 <span style="color:var(--blue)">${(_pj||[]).length}</span></h2><button onclick="openProjModal('')" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;flex:0 0 auto">＋ 프로젝트</button></div><div id="proj-body"${_pcol?' style="display:none"':''}>${_pc?`<div class="card">${_pc}</div>`:`<div class="card"><div class="empty">진행 중인 프로젝트가 없습니다</div></div>`}</div></div>`;
   }
   return `${_projTop}${_goals}${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
