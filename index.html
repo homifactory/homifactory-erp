@@ -1011,13 +1011,13 @@ async function viewHome(){
     const _ex=await sb.from('expenses').select('project_code,amount');
     const _sp={};(_ex.data||[]).forEach(e=>{_sp[e.project_code]=(_sp[e.project_code]||0)+(+e.amount||0);});
     const _td=new Date(todayStr()+'T00:00:00');
-    const _pc=(_pj||[]).map(p=>{
+    const _pc=(_pj||[]).map((p,idx)=>{
       const sd=p.start_date?new Date(p.start_date+'T00:00:00'):null;const ed=p.end_date?new Date(p.end_date+'T00:00:00'):null;
       let sp=null,di='';if(sd&&ed&&ed>sd){const tot=Math.round((ed-sd)/86400000);const el=Math.round((_td-sd)/86400000);sp=Math.max(0,Math.min(100,Math.round(el/tot*1000)/10));di=Math.max(0,Math.min(tot,el))+'일차 / 총 '+tot+'일';}
       const dl=ed?Math.ceil((ed-_td)/86400000):null;
       const spent=_sp[p.code]||0;const bud=+p.budget||0;const bp=bud>0?Math.round(spent/bud*1000)/10:null;const mg=bud-spent;
       const bc=sp==null?'#3B78EE':(dl!=null&&dl<0?'#D64545':(sp>85?'#E8A13B':'#3B78EE'));
-      return `<div class="card" style="flex:1 1 300px;min-width:270px">
+      return `<div style="padding:13px 2px;${idx?'border-top:1px solid var(--line)':''}">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-weight:800;font-size:14.5px;min-width:0;cursor:pointer;word-break:break-word" onclick="openProjModal('${p.code}')">${esc(p.name)}</div>${dl!=null?`<span class="meta" style="white-space:nowrap;font-weight:700;color:${dl<0?'#D64545':(dl<=3?'#E8A300':'var(--muted)')}">D${dl>=0?'-'+dl:'+'+(-dl)}</span>`:''}</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:10px;color:var(--muted)"><span>진척(기간)${di?' · '+di:''}</span><span style="font-weight:700;color:var(--ink)">${sp!=null?sp+'%':'—'}</span></div>
         <div style="height:9px;border-radius:6px;background:var(--bg);overflow:hidden;margin-top:5px"><div style="height:100%;width:${sp!=null?Math.min(sp,100):0}%;background:${bc}"></div></div>
@@ -1025,7 +1025,7 @@ async function viewHome(){
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="meta">예상 마진</span><span style="font-weight:700;color:${mg<0?'#D64545':'#16A06B'}">${mg.toLocaleString()}원</span></div>
       </div>`;
     }).join('');
-    _projTop=`<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 class="sec" style="margin:0">🚀 진행 중 프로젝트 <span style="color:var(--blue)">${(_pj||[]).length}</span></h2><button onclick="openProjModal('')" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;flex:0 0 auto">＋ 프로젝트</button></div>${_pc?`<div style="display:flex;flex-wrap:wrap;gap:12px">${_pc}</div>`:`<div class="card"><div class="empty">진행 중인 프로젝트가 없습니다</div></div>`}</div>`;
+    _projTop=`<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 class="sec" style="margin:0">🚀 진행 중 프로젝트 <span style="color:var(--blue)">${(_pj||[]).length}</span></h2><button onclick="openProjModal('')" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;flex:0 0 auto">＋ 프로젝트</button></div>${_pc?`<div class="card">${_pc}</div>`:`<div class="card"><div class="empty">진행 중인 프로젝트가 없습니다</div></div>`}</div>`;
   }
   return `${_projTop}${_goals}${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
