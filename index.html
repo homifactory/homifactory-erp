@@ -393,7 +393,7 @@ async function viewSettlement(){
   const tableSection=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0 8px"><h2 class="sec" style="margin:0">지출 내역 <span class="meta" style="font-weight:600">(${rows.length}건 · ${filtTot.toLocaleString()}원)</span></h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${projFilt}<input type="date" value="${f.from}" onchange="setExf('from',this.value)" style="${FS}"><span class="meta">~</span><input type="date" value="${f.to}" onchange="setExf('to',this.value)" style="${FS}">${pmFilt}${(f.proj||f.from||f.to||f.pm)?`<button onclick="clearExf()" style="${FS};cursor:pointer;color:var(--muted)">필터해제</button>`:''}<button onclick="exportExpensesCSV()" style="height:34px;padding:0 14px;border:none;border-radius:8px;background:#16A06B;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">⬇ CSV 내보내기</button></div></div>
     <div class="card" style="padding:0;overflow:auto"><table class="dtable"><thead><tr><th>지출일</th><th>프로젝트</th><th>대분류/소분류</th><th>법인/개인</th><th>결제수단</th><th style="text-align:right">금액</th><th>적요</th><th></th></tr></thead><tbody>${tbody}</tbody><tfoot><tr><td colspan="5" style="text-align:right">합계</td><td style="text-align:right">${filtTot.toLocaleString()}원</td><td colspan="2"></td></tr></tfoot></table></div>`;
-  const modal=(window._projModal?projModalHtml(window._projModal):'')+(window._projExpModal?projExpModalHtml(window._projExpModal):'');
+  const modal=(window._projExpModal?projExpModalHtml(window._projExpModal):'');
   return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px"><h2 class="sec" style="margin:0">실시간 프로젝트 P&L</h2><button onclick="openProjModal('')" style="height:38px;padding:0 16px;border:1px solid var(--line);background:#fff;border-radius:10px;font-weight:700;cursor:pointer">＋ 프로젝트</button></div>
   ${metrics}
   ${projChips?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${projChips}</div>`:''}
@@ -721,7 +721,7 @@ async function render(){
   if(workspace==='id'&&me&&!canIndo())workspace='kr';
   renderNav();$('title').textContent=TITLES[tab]||'';
   $('view').innerHTML='<div class="empty">불러오는 중…</div>';
-  try{ $('view').innerHTML=await (VIEWS[tab]||viewHome)(); }
+  try{ $('view').innerHTML=await (VIEWS[tab]||viewHome)(); if(window._projModal)$('view').insertAdjacentHTML('beforeend',projModalHtml(window._projModal)); }
   catch(e){ $('view').innerHTML='<div class="card"><div class="empty" style="color:var(--red)">오류: '+esc(e.message)+'</div></div>'; }
   if(window._afFocus){const q=document.getElementById('af-q');if(q){q.focus();const v=q.value;q.value='';q.value=v;}window._afFocus=0;}
   try{translateWS();}catch(_){}
@@ -1007,7 +1007,7 @@ async function viewHome(){
   const _goalM='';
   let _projTop='';
   if(canFin()&&workspace!=='id'){
-    const {data:_pj}=await sb.from('projects').select('code,name,status,start_date,end_date,budget').eq('status','진행중').neq('code','OVERHEAD').order('end_date',{ascending:true});
+    const {data:_pj}=await sb.from('projects').select('id,code,name,status,start_date,end_date,budget').eq('status','진행중').neq('code','OVERHEAD').order('end_date',{ascending:true});window._projCache=window._projCache||{};(_pj||[]).forEach(p=>{window._projCache[p.code]=p;});
     const _ex=await sb.from('expenses').select('project_code,amount');
     const _sp={};(_ex.data||[]).forEach(e=>{_sp[e.project_code]=(_sp[e.project_code]||0)+(+e.amount||0);});
     const _td=new Date(todayStr()+'T00:00:00');
@@ -1025,7 +1025,7 @@ async function viewHome(){
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="meta">예상 마진</span><span style="font-weight:700;color:${mg<0?'#D64545':'#16A06B'}">${mg.toLocaleString()}원</span></div>
       </div>`;
     }).join('');
-    _projTop=`<div style="margin-bottom:4px"><h2 class="sec" style="margin-top:0">🚀 진행 중 프로젝트 <span style="color:var(--blue)">${(_pj||[]).length}</span></h2>${_pc?`<div style="display:flex;flex-wrap:wrap;gap:12px">${_pc}</div>`:`<div class="card"><div class="empty">진행 중인 프로젝트가 없습니다</div></div>`}</div>`;
+    _projTop=`<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 class="sec" style="margin:0">🚀 진행 중 프로젝트 <span style="color:var(--blue)">${(_pj||[]).length}</span></h2><button onclick="openProjModal('')" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;flex:0 0 auto">＋ 프로젝트</button></div>${_pc?`<div style="display:flex;flex-wrap:wrap;gap:12px">${_pc}</div>`:`<div class="card"><div class="empty">진행 중인 프로젝트가 없습니다</div></div>`}</div>`;
   }
   return `${_projTop}${_goals}${_hideAP?'':`<div class="grid2" style="align-items:stretch;margin-top:18px">
     <div>${clockCard(a)}</div>
