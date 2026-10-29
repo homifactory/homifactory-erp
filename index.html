@@ -1856,32 +1856,46 @@ async function saveContact(id){
   contactModal=false;contactEdit=null;toast('수정되었습니다');render();
 }
 async function delContact(id){await sb.from('contacts').delete().eq('id',id);if(contactEdit===id){contactEdit=null;contactModal=false;}render();}
+function axIcon(a){
+  if(a.is_folder)return '📁';
+  const ext=((a.file_path||a.file_name||'').split('.').pop()||'').toLowerCase();
+  if(a.file_path){
+    if(ext==='pdf')return '📕';
+    if(['xls','xlsx','csv','tsv'].includes(ext))return '📊';
+    if(['ppt','pptx'].includes(ext))return '📈';
+    if(['doc','docx'].includes(ext))return '📝';
+    if(['png','jpg','jpeg','gif','webp','svg','heic'].includes(ext))return '🖼️';
+    if(['html','htm'].includes(ext))return '🌐';
+    if(['zip','rar','7z'].includes(ext))return '🗜️';
+    return '📄';
+  }
+  if(a.url)return '🔗';
+  return '📄';
+}
 async function viewArchive(){
   const {data:arc}=await sb.from('archives').select('*').order('sort_order',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});
   const {data:emps}=await sb.from('emp_dir').select('id,name').order('name');
-  const all=arc||[];
+  const all=arc||[];window.__arcAll=all;
   const childrenOf={};all.forEach(a=>{const p=a.parent_id||'__root__';(childrenOf[p]=childrenOf[p]||[]).push(a);});
   Object.keys(childrenOf).forEach(k=>childrenOf[k].sort((x,y)=>((y.is_folder?1:0)-(x.is_folder?1:0))||((x.sort_order||0)-(y.sort_order||0))||((y.created_at||'').localeCompare(x.created_at||''))));
-  let openMap={};try{openMap=JSON.parse(localStorage.getItem('homi_arc_open')||'{}')||{};}catch(e){openMap={};}
-  const isOpen=(id)=>openMap[id]!==false;
   const countFiles=(id)=>{let n=0;(childrenOf[id]||[]).forEach(c=>{if(!c.is_folder)n++;n+=countFiles(c.id);});return n;};
-  function renderNode(a,depth){
-    const pad=12+depth*18;
-    if(a.is_folder){
-      const kids=childrenOf[a.id]||[];const open=isOpen(a.id);const cnt=countFiles(a.id);
-      const head=`<div class="av-row av-folder" draggable="true" data-aid="${a.id}" data-folder="1" ondragstart="arcDragStart(event)" ondragover="arcDragOver(event)" ondragleave="arcDragLeave(event)" ondrop="arcDrop(event)" ondragend="arcDragEnd(event)" style="padding-left:${pad}px" onclick="toggleArcFolder('${a.id}')"><span class="av-caret">${open?'▾':'▸'}</span><span class="av-fic">📁</span><div class="av-main"><div class="av-title av-ftitle">${esc(a.title)}<span class="av-gcount">${cnt}</span></div></div><div class="av-side"><button class="av-act" title="자료 추가" onclick="event.stopPropagation();arcEdit=null;window._arcParent='${a.id}';arcModal=true;render()">＋자료</button><button class="av-act" title="하위 폴더" onclick="event.stopPropagation();folderEdit=null;window._foParent='${a.id}';folderModal=true;render()">＋폴더</button><button class="av-act" onclick="event.stopPropagation();startFolderEdit('${a.id}')">수정</button><button class="av-act del" onclick="event.stopPropagation();delFolder('${a.id}')">×</button></div></div>`;
-      const body=open?`<div class="av-fbody">${kids.length?kids.map(k=>renderNode(k,depth+1)).join(''):`<div class="av-empty" style="padding-left:${pad+18}px">비어 있음</div>`}</div>`:'';
-      return head+body;
-    }
-    const vt=(a.visibility&&a.visibility!=='전체')?`<span class="av-tag">${a.visibility==='부서'?'부서 한정':'지정 공개'}</span>`:'';
-    const ttl=a.url?`<a href="${esc(a.url)}" target="_blank" onclick="event.stopPropagation()">${esc(a.title)}</a>`:esc(a.title);
-    const chip=a.file_path?`<button class="av-chip" onclick="event.stopPropagation();openArchiveFile('${a.file_path}')">📎 ${esc(a.file_name||'파일')}</button>`:'';
-    const kids=childrenOf[a.id]||[];
-    const self=`<div class="av-row" draggable="true" data-aid="${a.id}" style="padding-left:${pad}px" ondragstart="arcDragStart(event)" ondragover="arcDragOver(event)" ondragleave="arcDragLeave(event)" ondrop="arcDrop(event)" ondragend="arcDragEnd(event)"><span class="av-handle" title="드래그로 폴더 이동">⠿</span><span class="av-fic">📄</span><div class="av-main"><div class="av-title">${ttl}${chip}${vt}</div>${a.note?`<div class="av-note">${esc(a.note)}</div>`:''}</div><div class="av-side"><span class="av-date">${(a.created_at||'').slice(0,10)}</span><button class="av-act" onclick="event.stopPropagation();startArcEdit('${a.id}')">수정</button><button class="av-act del" onclick="event.stopPropagation();delArchive('${a.id}')">×</button></div></div>`;
-    return self+(kids.length?kids.map(k=>renderNode(k,depth+1)).join(''):'');
-  }
-  const roots=childrenOf['__root__']||[];
-  const tree=roots.length?roots.map(r=>renderNode(r,0)).join(''):'<div class="empty">폴더가 없습니다. 우측 상단 ‘＋ 폴더’로 만들어 보세요.</div>';
+  let cwd=window._arcCwd||'';
+  let cwdNode=cwd?all.find(a=>a.id===cwd):null;
+  if(cwd&&!cwdNode){window._arcCwd='';cwd='';cwdNode=null;}
+  const path=[];{let p=cwdNode;while(p){path.unshift(p);p=p.parent_id?all.find(a=>a.id===p.parent_id):null;}}
+  const items=childrenOf[cwd||'__root__']||[];
+  const folders=items.filter(x=>x.is_folder);
+  const files=items.filter(x=>!x.is_folder);
+  const tileHtml=(a)=>{
+    const isF=a.is_folder;const restricted=(a.visibility&&a.visibility!=='전체');
+    const act=isF?`navArc('${a.id}')`:`openArcFileById('${a.id}')`;
+    const sub=isF?`${countFiles(a.id)}개`:(a.file_path?((a.file_path||'').split('.').pop()||'').toUpperCase():(a.url?'링크':''));
+    return `<div class="ax-tile" draggable="true" data-aid="${a.id}" ${isF?'data-folder="1"':''} ondragstart="arcDragStart(event)" ondragover="arcDragOver(event)" ondragleave="arcDragLeave(event)" ondrop="arcDrop(event)" ondragend="arcDragEnd(event)" ondblclick="${act}" title="더블클릭으로 열기"><div class="ax-acts"><button class="ax-abtn" title="수정" onclick="event.stopPropagation();${isF?`startFolderEdit('${a.id}')`:`startArcEdit('${a.id}')`}">✎</button><button class="ax-abtn del" title="삭제" onclick="event.stopPropagation();${isF?`delFolder('${a.id}')`:`delArchive('${a.id}')`}">🗑</button></div><div class="ax-ic">${axIcon(a)}</div><div class="ax-nm">${esc(a.title)}${restricted?' 🔒':''}</div>${sub?`<div class="ax-cnt">${esc(sub)}</div>`:''}</div>`;
+  };
+  const gridInner=(folders.length||files.length)?(folders.map(tileHtml).join('')+files.map(tileHtml).join('')):`<div class="ax-empty">비어 있는 폴더입니다. 상단 ‘＋ 폴더’ 또는 ‘＋ 자료’로 추가하세요.</div>`;
+  let crumbs=`<span class="ax-crumb" onclick="navArc('')">🏠 자료실</span>`;
+  path.forEach(seg=>{crumbs+=`<span class="ax-sep">›</span><span class="ax-crumb" onclick="navArc('${seg.id}')">${esc(seg.title)}</span>`;});
+  const back=cwd?`<button class="ax-back" onclick="navArc('${cwdNode&&cwdNode.parent_id?cwdNode.parent_id:''}')">←</button>`:'';
   const folderOptStr=(selId)=>{let out='<option value="">— 최상위 —</option>';const walk=(pid,d)=>{(childrenOf[pid]||[]).filter(x=>x.is_folder).forEach(f=>{out+=`<option value="${f.id}" ${selId===f.id?'selected':''}>${'　'.repeat(d)}${esc(f.title)}</option>`;walk(f.id,d+1);});};walk('__root__',0);return out;};
   const editing=arcEdit?all.find(a=>a.id===arcEdit):null;
   const curFolder=editing?(editing.parent_id||''):(window._arcParent||'');
@@ -1911,16 +1925,18 @@ async function viewArchive(){
     <div class="field"><label>상위 폴더</label><select id="fo-parent">${folderOptStr(foCurParent)}</select></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button onclick="folderModal=false;folderEdit=null;window._foParent=null;render()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer">취소</button><button class="ap" onclick="saveFolder()">저장</button></div>
   </div></div>`:'';
-  return `<div style="max-width:900px;margin:0 auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <h2 class="sec" style="margin:0">자료 · 메뉴얼 (${all.filter(a=>!a.is_folder).length})</h2>
-      <div style="display:flex;gap:8px"><button onclick="folderEdit=null;window._foParent=null;folderModal=true;render()" style="background:#fff;border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer">＋ 폴더</button><button onclick="arcEdit=null;window._arcParent=null;arcModal=true;render()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer">＋ 자료</button></div>
+  return `<div style="max-width:1000px;margin:0 auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+      <div class="ax-bar">${back}${crumbs}</div>
+      <div style="display:flex;gap:8px;flex:none"><button onclick="folderEdit=null;window._foParent=window._arcCwd||null;folderModal=true;render()" style="background:#fff;border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer">＋ 폴더</button><button onclick="arcEdit=null;window._arcParent=window._arcCwd||null;arcModal=true;render()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer">＋ 자료</button></div>
     </div>
-    <style>.av-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;transition:background .12s}.av-row:hover{background:var(--soft)}.av-caret{flex:none;color:var(--muted);font-size:11px;width:12px;text-align:center}.av-fic{flex:none;font-size:14px}.av-folder{cursor:pointer}.av-handle{opacity:0;cursor:grab;color:var(--muted);font-size:12px;flex:none;transition:opacity .12s}.av-row:hover .av-handle{opacity:.55}.av-main{flex:1;min-width:0}.av-title{font-size:14px;font-weight:600;color:var(--tx);display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.4}.av-ftitle{font-weight:700}.av-title a{color:var(--tx);text-decoration:none}.av-title a:hover{color:var(--blue);text-decoration:underline}.av-note{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}.av-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,transparent);border:none;border-radius:7px;padding:3px 8px;cursor:pointer}.av-chip:hover{background:color-mix(in srgb,var(--blue) 22%,transparent)}.av-tag{font-size:10px;font-weight:700;color:var(--muted);background:var(--soft);border-radius:6px;padding:2px 7px}.av-gcount{font-size:11px;font-weight:700;color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent);border-radius:999px;padding:1px 8px}.av-side{display:flex;align-items:center;gap:4px;flex:none}.av-date{font-size:11px;color:var(--muted);margin-right:2px}.av-act{opacity:0;font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:6px;transition:opacity .12s,background .12s;white-space:nowrap}.av-row:hover .av-act{opacity:1}.av-act:hover{background:var(--card);color:var(--tx)}.av-act.del:hover{color:#e02424}.av-empty{font-size:12px;color:var(--muted);padding:7px 12px}.av-drop{outline:2px solid var(--blue);outline-offset:-2px;background:color-mix(in srgb,var(--blue) 8%,transparent)}</style>
-    <div class="card" style="padding:6px">${tree}</div>
+    <style>.ax-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:14px}.ax-crumb{cursor:pointer;color:var(--tx);font-weight:700;padding:3px 7px;border-radius:7px}.ax-crumb:hover{background:var(--soft);color:var(--blue)}.ax-sep{color:var(--muted);font-size:13px}.ax-back{background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1;margin-right:2px}.ax-back:hover{color:var(--tx);background:var(--soft)}.ax-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}.ax-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px 12px;border-radius:12px;cursor:pointer;transition:background .1s,box-shadow .1s;border:1px solid transparent;text-align:center;-webkit-user-select:none;user-select:none}.ax-tile:hover{background:var(--soft);border-color:var(--line)}.ax-tile:active{background:color-mix(in srgb,var(--blue) 12%,transparent)}.ax-ic{font-size:44px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.12))}.ax-nm{font-size:12.5px;font-weight:600;color:var(--tx);line-height:1.3;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ax-cnt{font-size:11px;color:var(--muted)}.ax-acts{position:absolute;top:5px;right:5px;display:flex;gap:3px;opacity:0;transition:opacity .12s}.ax-tile:hover .ax-acts{opacity:1}.ax-abtn{background:var(--card);border:1px solid var(--line);border-radius:6px;font-size:11px;line-height:1;padding:3px 5px;cursor:pointer;color:var(--muted)}.ax-abtn:hover{color:var(--tx);background:#fff}.ax-abtn.del:hover{color:#e02424}.ax-empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:50px 10px}.ax-drop{background:color-mix(in srgb,var(--blue) 14%,transparent)!important;border-color:var(--blue)!important}</style>
+    <div class="card" style="padding:14px"><div class="ax-grid">${gridInner}</div></div>
+    <div class="meta" style="margin-top:9px;font-size:11.5px">💡 폴더·자료를 더블클릭하면 열리고, 드래그해서 다른 폴더로 옮길 수 있어요.</div>
   </div>${modal}${folderModalHtml}`;
 }
-function toggleArcFolder(id){let m={};try{m=JSON.parse(localStorage.getItem('homi_arc_open')||'{}')||{};}catch(e){m={};}m[id]=(m[id]===false)?true:false;try{localStorage.setItem('homi_arc_open',JSON.stringify(m));}catch(e){}render();}
+function navArc(id){window._arcCwd=id||'';render();}
+function openArcFileById(id){var all=window.__arcAll||[];var a=all.find(x=>x.id===id);if(!a){sb.from('archives').select('url,file_path').eq('id',id).maybeSingle().then(({data})=>{if(!data)return;if(data.url)window.open(data.url,'_blank');else if(data.file_path)openArchiveFile(data.file_path);});return;}if(a.url)window.open(a.url,'_blank');else if(a.file_path)openArchiveFile(a.file_path);}
 function startArcEdit(id){arcEdit=id;arcModal=true;render();}
 function startFolderEdit(id){folderEdit=id;folderModal=true;render();}
 async function saveFolder(){
@@ -1972,14 +1988,13 @@ async function saveArchive(){
 async function openArchiveFile(path){const isHtml=/\.html?$/i.test(path);const w=isHtml?window.open('','_blank'):null;const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){if(w)w.close();toast('파일을 열 수 없습니다');return;}if(isHtml){try{const res=await fetch(data.signedUrl);const html=await res.text();const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);if(w){w.location.href=url;}else{window.open(url,'_blank');}setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){if(w){w.location.href=data.signedUrl;}else{window.open(data.signedUrl,'_blank');}}return;}window.open(data.signedUrl,'_blank');}
 async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
 window._arcDrag=null;
-function arcDragStart(e){const row=e.target.closest('.av-row');if(!row)return;window._arcDrag={id:row.getAttribute('data-aid')};try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',window._arcDrag.id);}catch(_){}}
-function arcDragOver(e){const d=window._arcDrag;if(!d)return;const row=e.target.closest('.av-row');if(!row)return;if(row.getAttribute('data-folder')==='1'&&row.getAttribute('data-aid')!==d.id){e.preventDefault();row.classList.add('av-drop');}}
-function arcDragLeave(e){const row=e.target.closest('.av-row');if(row)row.classList.remove('av-drop');}
-function arcDragEnd(e){document.querySelectorAll('.av-row').forEach(r=>r.classList.remove('av-drop'));window._arcDrag=null;}
-async function arcDrop(e){e.preventDefault();const d=window._arcDrag;document.querySelectorAll('.av-row').forEach(r=>r.classList.remove('av-drop'));if(!d)return;const row=e.target.closest('.av-row');if(!row)return;if(row.getAttribute('data-folder')!=='1')return;const tid=row.getAttribute('data-aid');if(tid===d.id)return;
+function arcDragStart(e){const t=e.target.closest('.ax-tile');if(!t)return;window._arcDrag={id:t.getAttribute('data-aid')};try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',window._arcDrag.id);}catch(_){}}
+function arcDragOver(e){const d=window._arcDrag;if(!d)return;const t=e.target.closest('.ax-tile');if(!t)return;if(t.getAttribute('data-folder')==='1'&&t.getAttribute('data-aid')!==d.id){e.preventDefault();t.classList.add('ax-drop');}}
+function arcDragLeave(e){const t=e.target.closest('.ax-tile');if(t)t.classList.remove('ax-drop');}
+function arcDragEnd(e){document.querySelectorAll('.ax-tile').forEach(r=>r.classList.remove('ax-drop'));window._arcDrag=null;}
+async function arcDrop(e){e.preventDefault();const d=window._arcDrag;document.querySelectorAll('.ax-tile').forEach(r=>r.classList.remove('ax-drop'));if(!d)return;const t=e.target.closest('.ax-tile');if(!t)return;if(t.getAttribute('data-folder')!=='1')return;const tid=t.getAttribute('data-aid');if(tid===d.id)return;
   const {data:allr}=await sb.from('archives').select('id,parent_id');const byp={};(allr||[]).forEach(a=>byp[a.id]=a.parent_id);let p=tid,guard=0;while(p&&guard<200){if(p===d.id){toast('하위 폴더로는 이동할 수 없습니다');return;}p=byp[p];guard++;}
   const {error}=await sb.from('archives').update({parent_id:tid}).eq('id',d.id);if(error){toast('오류: '+error.message);return;}
-  try{let m=JSON.parse(localStorage.getItem('homi_arc_open')||'{}')||{};m[tid]=true;localStorage.setItem('homi_arc_open',JSON.stringify(m));}catch(_){}
   toast('이동되었습니다');render();
 }
 
