@@ -285,8 +285,8 @@ async function refreshBadges(){
 }
 function canFin(){return !!(me&&(me.is_admin||(me.dept&&me.dept.indexOf('경영')>-1)));}
 function navItems(){
-  if(workspace==='id')return [['home','Home'],['todo','TO DO'],['cal','Calendar'],['archive','Resources'],['drive','Drive']];
-  const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['drive','드라이브'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
+  if(workspace==='id')return [['home','Home'],['todo','TO DO'],['cal','Calendar'],['archive','Resources']];
+  const b=[['home','홈'],['todo','TO DO LIST'],['cal','캘린더'],['meet','회의록'],['archive','자료실'],['contacts','주소록'],['leave','휴가'],['approval','전자결재'],['mail','메일'],['mypage','마이페이지']];
   if(canFin())b.splice(9,0,['settlement','정산']);
   if(me.is_admin){b.push(['hr','인사']);b.push(['team','팀 관리']);}
   return b;
@@ -1936,7 +1936,7 @@ async function viewArchive(){
   </div>${modal}${folderModalHtml}`;
 }
 function navArc(id){window._arcCwd=id||'';render();}
-function openArcFileById(id){var all=window.__arcAll||[];var a=all.find(x=>x.id===id);if(!a){sb.from('archives').select('url,file_path').eq('id',id).maybeSingle().then(({data})=>{if(!data)return;if(data.url)window.open(data.url,'_blank');else if(data.file_path)openArchiveFile(data.file_path);});return;}if(a.url)window.open(a.url,'_blank');else if(a.file_path)openArchiveFile(a.file_path);}
+function openArcFileById(id){var all=window.__arcAll||[];var a=all.find(x=>x.id===id);if(!a){sb.from('archives').select('url,file_path,file_bucket').eq('id',id).maybeSingle().then(({data})=>{if(!data)return;if(data.url)window.open(data.url,'_blank');else if(data.file_path)openArchiveFile(data.file_path,data.file_bucket);});return;}if(a.url)window.open(a.url,'_blank');else if(a.file_path)openArchiveFile(a.file_path,a.file_bucket);}
 function startArcEdit(id){arcEdit=id;arcModal=true;render();}
 function startFolderEdit(id){folderEdit=id;folderModal=true;render();}
 async function saveFolder(){
@@ -1985,7 +1985,7 @@ async function saveArchive(){
   if(error){toast('오류: '+error.message);return;}
   arcModal=false;arcEdit=null;window._arcParent=null;toast('수정되었습니다');render();
 }
-async function openArchiveFile(path){const isHtml=/\.html?$/i.test(path);const w=isHtml?window.open('','_blank'):null;const {data,error}=await sb.storage.from('archive-files').createSignedUrl(path,180);if(error||!data){if(w)w.close();toast('파일을 열 수 없습니다');return;}if(isHtml){try{const res=await fetch(data.signedUrl);const html=await res.text();const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);if(w){w.location.href=url;}else{window.open(url,'_blank');}setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){if(w){w.location.href=data.signedUrl;}else{window.open(data.signedUrl,'_blank');}}return;}window.open(data.signedUrl,'_blank');}
+async function openArchiveFile(path,bucket){bucket=bucket||'archive-files';const isHtml=/\.html?$/i.test(path);const w=isHtml?window.open('','_blank'):null;const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,180);if(error||!data){if(w)w.close();toast('파일을 열 수 없습니다');return;}if(isHtml){try{const res=await fetch(data.signedUrl);const html=await res.text();const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);if(w){w.location.href=url;}else{window.open(url,'_blank');}setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){if(w){w.location.href=data.signedUrl;}else{window.open(data.signedUrl,'_blank');}}return;}window.open(data.signedUrl,'_blank');}
 async function delArchive(id){await sb.from('archives').delete().eq('id',id);render();}
 window._arcDrag=null;
 function arcDragStart(e){const t=e.target.closest('.ax-tile');if(!t)return;window._arcDrag={id:t.getAttribute('data-aid')};try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',window._arcDrag.id);}catch(_){}}
