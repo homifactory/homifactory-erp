@@ -483,11 +483,13 @@ async function delProject(id,code){
   await sb.from('projects').delete().eq('id',id);
   window._projModal=null;toast('삭제되었습니다');render();
 }
+function toggleMailUnread(){window._mailUnread=!window._mailUnread;render();}
 async function viewMail(){
   if(!window.gToken){return mailPermCard();}
   var rows;
   try{
-    var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&labelIds=INBOX',{headers:{'Authorization':'Bearer '+window.gToken}});
+    var _unr=window._mailUnread?'&labelIds=UNREAD':'';
+    var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&labelIds=INBOX'+_unr,{headers:{'Authorization':'Bearer '+window.gToken}});
     if(r.status===401||r.status===403){return mailPermCard();}
     var j=await r.json();var ids=(j.messages||[]).map(function(m){return m.id;});
     var msgs=await Promise.all(ids.map(function(id){return fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date',{headers:{'Authorization':'Bearer '+window.gToken}}).then(function(x){return x.ok?x.json():null;});}));
@@ -499,9 +501,9 @@ async function viewMail(){
       var dt=m.internalDate?new Date(+m.internalDate):null;
       var dstr=dt?((dt.getMonth()+1)+'/'+dt.getDate()):'';
       return `<div class="row" style="cursor:pointer" onclick="openMailInline('${m.id}',this)"><div style="flex:1;min-width:0"><div class="ttl" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${unread?'font-weight:700':'font-weight:500'}">${esc(subj)}</div><div class="meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(from)} · ${esc((m.snippet||'').slice(0,60))}</div></div><div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">${unread?'<span class="badge">N</span>':''}<span class="meta">${dstr}</span><button onclick="event.stopPropagation();trashMail('${m.id}',this)" title="휴지통으로 이동" style="background:none;border:none;color:#C9CDD4;cursor:pointer;font-size:14px;padding:0 2px;line-height:1">🗑</button></div></div>`;
-    }).join('')||'<div class="empty">받은 메일이 없습니다</div>';
+    }).join('')||(window._mailUnread?'<div class="empty">안 읽은 메일이 없습니다 🎉</div>':'<div class="empty">받은 메일이 없습니다</div>');
   }catch(e){return `<div class="card"><div class="empty">메일을 불러오지 못했습니다</div></div>`;}
-  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><h2 class="sec" style="margin:0">받은편지함</h2><div style="display:flex;gap:8px"><button onclick="gcalRelogin()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">🔄 권한 갱신</button><button onclick="openCompanyMail()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Gmail에서 열기 ↗</button></div></div><div style="display:flex;gap:16px;align-items:flex-start"><div class="card" style="flex:0 0 400px;max-width:400px;padding:6px 12px;max-height:calc(100vh - 170px);overflow:auto">${rows}</div><div class="card" id="mail-reading" style="flex:1;min-width:0;min-height:calc(100vh - 170px);display:flex;align-items:center;justify-content:center"><div class="empty">왼쪽에서 메일을 선택하세요</div></div></div>`;
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><h2 class="sec" style="margin:0">받은편지함</h2><div style="display:flex;gap:8px"><button onclick="toggleMailUnread()" style="background:${window._mailUnread?'var(--blue)':'#fff'};border:1px solid ${window._mailUnread?'var(--blue)':'var(--line)'};color:${window._mailUnread?'#fff':'var(--muted)'};border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">${window._mailUnread?'📬 전체 보기':'📨 안 읽은 메일만'}</button><button onclick="gcalRelogin()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">🔄 권한 갱신</button><button onclick="openCompanyMail()" style="background:#fff;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">Gmail에서 열기 ↗</button></div></div><div style="display:flex;gap:16px;align-items:flex-start"><div class="card" style="flex:0 0 400px;max-width:400px;padding:6px 12px;max-height:calc(100vh - 170px);overflow:auto">${rows}</div><div class="card" id="mail-reading" style="flex:1;min-width:0;min-height:calc(100vh - 170px);display:flex;align-items:center;justify-content:center"><div class="empty">왼쪽에서 메일을 선택하세요</div></div></div>`;
 }
 async function openMailInline(id,el){
   var pane=document.getElementById('mail-reading');
